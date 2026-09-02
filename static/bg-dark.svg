@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="380" height="380" viewBox="0 0 380 380">
   <!-- Dark-theme variant of bg.svg: same flat-lay motifs, softer/lighter tones
        tuned to read on a warm-charcoal background. Seamless 380px tile. -->
-  <g fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.2">
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.09">
 
     <g transform="translate(320,320)">
       <path d="M-8 66 A 52 52 0 0 1 66 -8" stroke="#8a6d4c" stroke-width="9"/>

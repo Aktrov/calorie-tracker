@@ -83,7 +83,7 @@ body {
     url("bg.svg"),
     linear-gradient(180deg, var(--bg-wash) 0%, rgba(127, 127, 127, 0) 260px);
   background-repeat: repeat, no-repeat;
-  background-size: 300px 300px, 100% 260px;
+  background-size: 400px 400px, 100% 260px;
   padding-bottom: calc(36px + env(safe-area-inset-bottom));
 }
 :root[data-theme="dark"] body {
@@ -126,6 +126,31 @@ button, input, select { font-family: inherit; font-size: inherit; color: inherit
 .icon-btn:hover { color: var(--primary-deep); }
 
 .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 0; }
+
+/* Mobile / narrow: the column wrappers are inert — content flows exactly as if
+   they weren't there (single column, unchanged). */
+.cols, .col { display: contents; }
+
+/* Wide screens: use the width, two columns, no tall side gutters. With the
+   meal/activity sections collapsed by default the whole dashboard fits without
+   scrolling on a typical laptop. */
+@media (min-width: 940px) {
+  .wrap { max-width: 1400px; padding: 26px clamp(24px, 4.5vw, 72px) 0; }
+  .wrap.narrow { max-width: 860px; }
+
+  .datebar { margin-bottom: 18px; }
+
+  .cols { display: flex; align-items: flex-start; gap: 26px; }
+  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+  .col-main { flex: 3 1 0; }
+  .col-side { flex: 2 1 0; }
+  .col > * { margin-bottom: 0; }
+  .col #meals .meal:last-child, .col #activity .meal:last-child { margin-bottom: 0; }
+
+  /* History: charts two-up instead of a tall stack. */
+  .hist-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  .hist-grid > .card { margin-bottom: 0; }
+}
 
 /* ---------------- Cards ---------------- */
 .card {
