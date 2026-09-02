@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
+  <g fill="none" stroke="#5a9e6f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <!-- leaf -->
+    <g transform="translate(22,24) rotate(-12)">
+      <path d="M20 2 C 34 8 34 30 20 40 C 6 30 6 8 20 2 Z"/>
+      <path d="M20 6 L 20 38"/>
+    </g>
+    <!-- apple -->
+    <g transform="translate(150,38) rotate(8)">
+      <path d="M20 12 C 15 6 5 8 5 18 C 5 30 14 40 20 40 C 26 40 35 30 35 18 C 35 8 25 6 20 12 Z"/>
+      <path d="M20 12 L 20 4"/>
+      <path d="M20 8 C 24 3 30 3 32 6 C 30 10 24 11 20 8 Z"/>
+    </g>
+    <!-- dumbbell -->
+    <g transform="translate(38,150) rotate(-6)">
+      <path d="M4 12 L 4 28 M10 8 L 10 32 M10 20 L 30 20 M30 8 L 30 32 M36 12 L 36 28"/>
+    </g>
+    <!-- water drop -->
+    <g transform="translate(186,168) rotate(10)">
+      <path d="M18 2 C 18 2 34 22 18 34 C 2 22 18 2 18 2 Z"/>
+    </g>
+    <!-- kettlebell -->
+    <g transform="translate(118,196) rotate(-4)">
+      <path d="M8 40 C 4 24 10 18 20 18 C 30 18 36 24 32 40 Z"/>
+      <path d="M13 18 C 13 8 27 8 27 18"/>
+    </g>
+    <!-- sprig -->
+    <g transform="translate(196,26) rotate(6)">
+      <path d="M6 34 C 6 20 16 10 30 8 M16 22 C 12 18 12 12 16 8 M22 16 C 20 11 22 6 27 5"/>
+    </g>
+    <!-- small drop -->
+    <g transform="translate(26,196) rotate(4)">
+      <path d="M14 2 C 14 2 26 17 14 26 C 2 17 14 2 14 2 Z"/>
+    </g>
+  </g>
+</svg>

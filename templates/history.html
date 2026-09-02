@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}History · Calorie Tracker{% endblock %}
+
+{% block content %}
+<div class="datebar" style="justify-content:flex-start;gap:6px;flex-wrap:wrap">
+  <button class="chip" data-days="7">7d</button>
+  <button class="chip" data-days="14">14d</button>
+  <button class="chip" data-days="30">30d</button>
+  <button class="chip" data-days="90">90d</button>
+</div>
+
+<div class="statgrid" style="margin-bottom:14px">
+  <div class="stat"><b id="stAvg">–</b><small>avg kcal / logged day</small></div>
+  <div class="stat"><b id="stActive">–</b><small>days active</small></div>
+  <div class="stat"><b id="stWeight">–</b><small>weight change</small></div>
+</div>
+
+<div class="card">
+  <h2>Calories vs goal</h2>
+  <svg class="chart" id="calChart" viewBox="0 0 700 210" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="legend">
+    <span><i style="background:var(--primary)"></i>Within goal</span>
+    <span><i style="background:var(--over)"></i>Over goal</span>
+    <span><i style="background:var(--fiber)"></i>Goal (incl. exercise)</span>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Weight trend</h2>
+  <svg class="chart" id="wChart" viewBox="0 0 700 210" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="legend">
+    <span><i style="background:var(--primary)"></i>Logged weight</span>
+    <span><i style="background:var(--fiber)"></i>Goal weight</span>
+  </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+const SVGNS = "http://www.w3.org/2000/svg";
+let days = +(localStorage.getItem("calorie-hist-days") || 30);
+
+function el(name, attrs, parent) {
+  const n = document.createElementNS(SVGNS, name);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(n);
+  return n;
+}
+
+async function load() {
+  $$(".chip[data-days]").forEach((b) => b.classList.toggle("active", +b.dataset.days === days));
+  let data;
+  try { data = await api("/api/history?days=" + days); }
+  catch (e) { toast(e.message); return; }
+
+  $("#stAvg").textContent = data.avg_calories == null ? "–" : fmt(data.avg_calories);
+  $("#stActive").textContent = (data.active_days || 0) + " / " + data.range_days;
+
+  const w = data.weight;
+  if (w.length >= 2) {
+    const delta = w[w.length - 1].weight_kg - w[0].weight_kg;
+    $("#stWeight").textContent = (delta > 0 ? "+" : "") + delta.toFixed(1) + " kg";
+  } else if (w.length === 1) {
+    $("#stWeight").textContent = w[0].weight_kg + " kg";
+  } else {
+    $("#stWeight").textContent = "–";
+  }
+
+  drawCalChart(data.days);
+  drawWeightChart(data.weight, data.goal_weight_kg, data.start_weight_kg);
+}
+
+function drawCalChart(rows) {
+  const svg = $("#calChart");
+  svg.innerHTML = "";
+  const W = 700, H = 210, padL = 44, padR = 12, padT = 12, padB = 26;
+  const iw = W - padL - padR, ih = H - padT - padB;
+  const goalRef = (r) => (r.goal_adjusted != null ? r.goal_adjusted : r.goal) || 0;
+  const maxV = Math.max(1, ...rows.map((r) => Math.max(r.calories, goalRef(r)))) * 1.12;
+  const bw = iw / rows.length;
+
+  for (let g = 0; g <= 4; g++) {
+    const y = padT + ih * (g / 4);
+    el("line", { x1: padL, y1: y, x2: W - padR, y2: y, class: "baseline" }, svg);
+    el("text", { x: padL - 6, y: y + 3, "text-anchor": "end" }, svg).textContent = Math.round(maxV * (1 - g / 4));
+  }
+
+  rows.forEach((r, i) => {
+    if (r.calories > 0) {
+      const h = ih * (r.calories / maxV);
+      el("rect", {
+        x: padL + i * bw + bw * 0.15, y: padT + ih - h,
+        width: bw * 0.7, height: h, rx: 2,
+        class: "caro" + (goalRef(r) && r.calories > goalRef(r) ? " over" : ""),
+      }, svg);
+    }
+  });
+
+  // goal line (per-day; rises on days with logged exercise)
+  const pts = rows.map((r, i) =>
+    (padL + i * bw + bw / 2) + "," + (goalRef(r) ? padT + ih - ih * (goalRef(r) / maxV) : padT + ih)
+  );
+  if (rows.some((r) => goalRef(r))) {
+    el("polyline", { points: pts.join(" "), class: "goalline", fill: "none", "stroke-width": 1.5 }, svg);
+  }
+
+  const step = Math.ceil(rows.length / 8);
+  rows.forEach((r, i) => {
+    if (i % step === 0) {
+      el("text", { x: padL + i * bw + bw / 2, y: H - 8, "text-anchor": "middle" }, svg)
+        .textContent = r.date.slice(5);
+    }
+  });
+}
+
+function drawWeightChart(w, goalW, startW) {
+  const svg = $("#wChart");
+  svg.innerHTML = "";
+  const W = 700, H = 210, padL = 44, padR = 12, padT = 12, padB = 26;
+  const iw = W - padL - padR, ih = H - padT - padB;
+
+  if (!w.length) {
+    el("text", { x: W / 2, y: H / 2, "text-anchor": "middle" }, svg).textContent = "No weight entries yet — log one on the Today page.";
+    return;
+  }
+
+  const vals = w.map((d) => d.weight_kg);
+  if (goalW) vals.push(goalW);
+  if (startW) vals.push(startW);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (hi - lo < 2) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * 0.1; lo -= pad; hi += pad;
+
+  const t0 = new Date(w[0].entry_date).getTime();
+  const t1 = new Date(w[w.length - 1].entry_date).getTime();
+  const span = Math.max(1, t1 - t0);
+  const x = (d) => padL + iw * ((new Date(d).getTime() - t0) / span);
+  const y = (v) => padT + ih * (1 - (v - lo) / (hi - lo));
+
+  for (let g = 0; g <= 4; g++) {
+    const yy = padT + ih * (g / 4);
+    el("line", { x1: padL, y1: yy, x2: W - padR, y2: yy, class: "baseline" }, svg);
+    el("text", { x: padL - 6, y: yy + 3, "text-anchor": "end" }, svg)
+      .textContent = (hi - (hi - lo) * (g / 4)).toFixed(1);
+  }
+
+  if (goalW) {
+    el("line", { x1: padL, y1: y(goalW), x2: W - padR, y2: y(goalW), class: "goalline" }, svg);
+  }
+
+  const line = w.map((d) => x(d.entry_date) + "," + y(d.weight_kg)).join(" ");
+  el("polyline", { points: line, class: "wline" }, svg);
+  w.forEach((d) => el("circle", { cx: x(d.entry_date), cy: y(d.weight_kg), r: 3, class: "wdot" }, svg));
+
+  if (w.length > 1) {
+    [w[0], w[w.length - 1]].forEach((d) => {
+      el("text", { x: x(d.entry_date), y: y(d.weight_kg) - 8, "text-anchor": "middle" }, svg)
+        .textContent = d.weight_kg;
+    });
+  }
+}
+
+$$(".chip[data-days]").forEach((b) =>
+  b.addEventListener("click", () => {
+    days = +b.dataset.days;
+    localStorage.setItem("calorie-hist-days", days);
+    load();
+  })
+);
+
+load();
+</script>
+{% endblock %}

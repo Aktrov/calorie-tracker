@@ -1,0 +1,153 @@
+name,brand,serving_desc,serving_grams,calories,protein_g,fiber_g,carbs_g,fat_g
+Roti / Chapati,,1 medium (40 g),40,120,3,1.8,22,2.5
+Plain paratha,,1 piece (60 g),60,200,4,2,28,8
+Aloo paratha,,1 piece (120 g),120,300,6,3,40,13
+Steamed white rice,,1 cup cooked (150 g),150,205,4,0.6,45,0.4
+Brown rice,,1 cup cooked (150 g),150,215,5,3.5,45,1.8
+Jeera rice,,1 cup (150 g),150,240,4,1,42,6
+Veg biryani,,1 cup (200 g),200,320,7,3,50,10
+Chicken biryani,,1 cup (200 g),200,400,18,2.5,45,15
+Toor dal (cooked),,1 cup (200 g),200,200,12,6,30,3
+Dal makhani,,1 cup (200 g),200,330,12,8,32,17
+Rajma curry,,1 cup (200 g),200,280,13,10,40,7
+Chole / chana masala,,1 cup (200 g),200,300,12,11,42,9
+Sambar,,1 cup (200 g),200,140,6,4,20,3
+Rasam,,1 cup (200 g),200,60,2,1.5,10,1.5
+Idli,,2 pieces (100 g),100,120,4,1.5,25,0.5
+Plain dosa,,1 piece (80 g),80,165,3.5,1.2,28,4
+Masala dosa,,1 piece (150 g),150,300,6,3,45,10
+Medu vada,,2 pieces (80 g),80,250,6,3,25,14
+Upma,,1 cup (180 g),180,250,6,3,38,8
+Poha,,1 cup (180 g),180,270,5,2.5,45,8
+Naan,,1 piece (90 g),90,260,9,2,48,5
+Butter naan,,1 piece (100 g),100,320,9,2,50,10
+Paneer butter masala,,1 cup (200 g),200,350,12,3,18,26
+Palak paneer,,1 cup (200 g),200,280,13,4,12,20
+Paneer tikka,,100 g,100,270,18,1,8,19
+Chicken curry,,1 cup (200 g),200,300,22,2,10,18
+Butter chicken,,1 cup (200 g),200,380,24,2,12,26
+Chicken tikka,,100 g,100,190,25,0,3,8
+Tandoori chicken,,1 leg (150 g),150,250,30,0,4,13
+Fish curry,,1 cup (200 g),200,220,20,1.5,8,12
+Egg curry (2 eggs),,1 cup (200 g),200,280,14,2,10,20
+Boiled egg,,1 large (50 g),50,78,6.3,0,0.6,5.3
+Fried egg,,1 large (46 g),46,90,6.3,0,0.4,7
+Omelette (2 eggs),,120 g,120,220,13,0,2,17
+Curd / plain yogurt,,1 bowl (150 g),150,90,8,0,9,3.5
+Buttermilk / chaas,,1 glass (250 ml),250,60,4,0,6,2
+Sweet lassi,,1 glass (250 ml),250,220,6,0,32,6
+Raita,,1 cup (150 g),150,100,5,1,8,5
+Plain khichdi,,1 cup (200 g),200,250,9,4,42,5
+Pav bhaji,,1 plate (2 pav + bhaji),350,450,10,8,60,18
+Vada pav,,1 piece (150 g),150,290,7,3,42,11
+Samosa,,1 piece (60 g),60,260,4,2,30,14
+Onion pakora / bhaji,,100 g,100,320,7,4,30,19
+Dhokla,,100 g,100,160,6,2,24,4
+Chana chaat,,1 cup (150 g),150,200,9,8,30,4
+Pani puri,,6 pieces,120,180,3,2,32,5
+Aloo gobi,,1 cup (200 g),200,200,5,6,22,11
+Bhindi masala,,1 cup (150 g),150,180,3,5,15,12
+Mixed veg curry,,1 cup (200 g),200,180,5,6,20,9
+Baingan bharta,,1 cup (200 g),200,190,4,6,16,12
+Gajar halwa,,1 bowl (120 g),120,350,5,3,45,17
+Gulab jamun,,2 pieces (80 g),80,300,4,0.5,45,12
+Jalebi,,100 g,100,380,3,0.5,65,13
+Rasgulla,,2 pieces (100 g),100,190,4,0,40,2
+Kheer / rice pudding,,1 bowl (150 g),150,250,6,0.5,40,7
+Besan ladoo,,1 piece (40 g),40,185,4,1.5,22,9
+White bread,,1 slice (28 g),28,75,2.5,0.8,14,1
+Whole wheat bread,,1 slice (32 g),32,82,4,2,14,1.1
+Butter,,1 tbsp (14 g),14,100,0.1,0,0,11.5
+Peanut butter,,1 tbsp (16 g),16,95,3.5,1,3.5,8
+Fruit jam,,1 tbsp (20 g),20,55,0,0.2,14,0
+Rolled oats (dry),,1/2 cup (40 g),40,150,5,4,27,3
+Cornflakes,,1 cup (30 g),30,110,2,1,25,0.2
+Muesli,,1/2 cup (45 g),45,170,5,4,30,3.5
+Whole milk,,1 cup (240 ml),240,150,8,0,12,8
+Toned / 2% milk,,1 cup (240 ml),240,120,8,0,12,5
+Skim milk,,1 cup (240 ml),240,85,8,0,12,0.2
+Paneer (raw),,100 g,100,265,18,0,6,20
+Tofu (firm),,100 g,100,145,15,2,4,8
+Chicken breast (cooked),,100 g,100,165,31,0,0,3.6
+Chicken thigh (cooked),,100 g,100,209,26,0,0,11
+Egg white,,1 large (33 g),33,17,3.6,0,0.2,0
+Salmon (cooked),,100 g,100,208,20,0,0,13
+Tuna (canned in water),,100 g,100,116,26,0,0,1
+Prawns (cooked),,100 g,100,99,24,0,0.2,0.3
+Mutton / lamb (cooked),,100 g,100,258,25,0,0,17
+Beef mince (cooked),,100 g,100,250,26,0,0,15
+Lentils (cooked),,1 cup (200 g),200,230,18,16,40,0.8
+Chickpeas (boiled),,1 cup (164 g),164,270,15,12,45,4
+Kidney beans (boiled),,1 cup (177 g),177,225,15,13,40,0.9
+Black beans (boiled),,1 cup (172 g),172,227,15,15,41,0.9
+Green peas (cooked),,1 cup (160 g),160,125,8,9,22,0.6
+Quinoa (cooked),,1 cup (185 g),185,222,8,5,39,3.6
+Pasta (cooked),,1 cup (140 g),140,220,8,3,43,1.3
+Potato (boiled),,1 medium (150 g),150,130,3,3,30,0.2
+Sweet potato (baked),,1 medium (150 g),150,130,3,4,30,0.1
+French fries,,1 medium serving (115 g),115,365,4,4,48,17
+Cheese pizza,,1 slice (100 g),100,270,11,2,33,10
+Veg burger,,1 burger (150 g),150,350,12,4,40,16
+Chicken burger,,1 burger (200 g),200,450,25,3,40,22
+Instant noodles,,1 pack (70 g dry),70,310,7,2.5,45,11
+Veg sandwich,,1 sandwich (150 g),150,300,9,4,40,12
+Banana,,1 medium (118 g),118,105,1.3,3.1,27,0.4
+Apple,,1 medium (182 g),182,95,0.5,4.4,25,0.3
+Orange,,1 medium (130 g),130,62,1.2,3.1,15,0.2
+Mango,,1 cup sliced (165 g),165,99,1.4,2.6,25,0.6
+Grapes,,1 cup (150 g),150,104,1.1,1.4,27,0.2
+Papaya,,1 cup cubed (145 g),145,62,0.7,2.5,16,0.4
+Watermelon,,1 cup (152 g),152,46,0.9,0.6,11,0.2
+Pomegranate arils,,1/2 cup (87 g),87,72,1.5,3.5,16,1
+Guava,,1 fruit (55 g),55,37,1.4,3,8,0.5
+Strawberries,,1 cup (152 g),152,49,1,3,12,0.5
+Blueberries,,1 cup (148 g),148,84,1.1,3.6,21,0.5
+Pineapple,,1 cup (165 g),165,82,0.9,2.3,22,0.2
+Dates,,3 pieces (24 g),24,66,0.4,1.6,18,0
+Avocado,,1/2 fruit (100 g),100,160,2,7,9,15
+Broccoli (cooked),,1 cup (156 g),156,55,3.7,5,11,0.6
+Spinach (raw),,1 cup (30 g),30,7,0.9,0.7,1.1,0.1
+Cucumber,,1 cup sliced (120 g),120,16,0.7,0.6,3.8,0.1
+Carrot,,1 medium (61 g),61,25,0.6,1.7,6,0.1
+Tomato,,1 medium (123 g),123,22,1.1,1.5,4.8,0.2
+Onion,,1 medium (110 g),110,44,1.2,1.9,10,0.1
+Bell pepper,,1 medium (119 g),119,30,1.2,2.5,7,0.3
+Cauliflower (cooked),,1 cup (155 g),155,40,3,3,8,0.5
+Green salad (no dressing),,1 bowl (100 g),100,20,1.5,1.8,3.5,0.2
+Cabbage (cooked),,1 cup (150 g),150,35,2,3,8,0.1
+Almonds,,10 pieces (12 g),12,70,2.6,1.5,2.4,6
+Cashews,,10 pieces (15 g),15,85,2.8,0.5,4.5,7
+Walnuts,,5 halves (10 g),10,65,1.5,0.7,1.4,6.5
+Roasted peanuts,,30 g,30,170,7,2.5,5,14
+Pistachios,,30 g,30,160,6,3,8,13
+Potato chips,,1 small bag (30 g),30,160,2,1.2,15,10
+Popcorn (air-popped),,3 cups (24 g),24,93,3,3.6,19,1.1
+Dark chocolate (70%),,30 g,30,170,2,3,13,12
+Milk chocolate,,30 g,30,160,2.2,1,17,9
+Digestive biscuit,,2 pieces (30 g),30,140,2,1,20,6
+Rusk,,2 pieces (30 g),30,120,3,1,22,2.5
+Marie biscuit,,3 pieces (20 g),20,90,1.5,0.5,15,2.5
+Granola bar,,1 bar (40 g),40,180,4,3,28,6
+Protein bar,,1 bar (60 g),60,220,20,5,22,7
+Whey protein,,1 scoop (30 g),30,120,24,0.5,3,1.5
+Boiled chana (snack),,1 cup (150 g),150,190,10,9,30,3
+Tea with milk & sugar,,1 cup (150 ml),150,90,2,0,12,3
+Black tea (no sugar),,1 cup,240,2,0,0,0.4,0
+Coffee with milk & sugar,,1 cup (150 ml),150,80,2.5,0,10,3
+Black coffee,,1 cup,240,5,0.3,0,0,0
+Filter coffee (South Indian),,1 cup (100 ml),100,110,3,0,14,4.5
+Green tea,,1 cup,240,2,0,0,0,0
+Orange juice,,1 glass (250 ml),250,112,1.7,0.5,26,0.5
+Cola,,1 can (330 ml),330,139,0,0,35,0
+Beer,,1 can (330 ml),330,153,1.6,0,13,0
+Red wine,,1 glass (150 ml),150,125,0.1,0,4,0
+Coconut water,,1 glass (240 ml),240,46,1.7,2.6,9,0.5
+Olive oil,,1 tbsp (14 g),14,119,0,0,0,13.5
+Ghee,,1 tbsp (14 g),14,123,0,0,0,14
+Vegetable oil,,1 tbsp (14 g),14,120,0,0,0,14
+Sugar,,1 tsp (4 g),4,16,0,0,4,0
+Honey,,1 tbsp (21 g),21,64,0.1,0,17,0
+Mayonnaise,,1 tbsp (14 g),14,94,0.1,0,0.1,10
+Tomato ketchup,,1 tbsp (17 g),17,17,0.2,0.1,4.5,0
+Coconut chutney,,2 tbsp (30 g),30,70,1.5,1.5,3,6
+Mango pickle,,1 tbsp (15 g),15,30,0.3,0.5,2,2.5

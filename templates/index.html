@@ -1,0 +1,670 @@
+{% extends "base.html" %}
+{% block title %}Today · Calorie Tracker{% endblock %}
+
+{% block content %}
+<div class="datebar">
+  <button id="prevDay" aria-label="Previous day">‹</button>
+  <input type="date" id="dateInput">
+  <button id="nextDay" aria-label="Next day">›</button>
+  <button class="chip" id="todayBtn">Today</button>
+</div>
+
+<div class="card">
+  <div class="ringwrap">
+    <div class="ring" id="ring">
+      <svg viewBox="0 0 140 140">
+        <circle class="track" cx="70" cy="70" r="62" fill="none" stroke-width="12"/>
+        <circle class="fill"  cx="70" cy="70" r="62" fill="none" stroke-width="12"
+                stroke-dasharray="389.56" stroke-dashoffset="389.56"/>
+      </svg>
+      <div class="ring-label">
+        <div>
+          <b id="ringRemain">–</b>
+          <small id="ringUnit">kcal left</small>
+        </div>
+      </div>
+    </div>
+    <div class="ring-side">
+      <div class="kv"><span class="muted small">Goal</span><b id="kvGoal">–</b></div>
+      <div class="kv"><span class="muted small">Food</span><b id="kvFood">0</b></div>
+      <div class="kv" id="kvExRow" hidden><span class="muted small">Exercise</span><b id="kvEx" style="color:var(--primary)">–</b></div>
+      <div class="kv" id="kvRemainRow"><span class="muted small">Remaining</span><b id="kvRemain">–</b></div>
+    </div>
+  </div>
+
+  <div class="bars">
+    <div>
+      <div class="bar-h"><span class="lbl">Protein</span><span id="proTxt" class="muted">–</span></div>
+      <div class="track2"><i class="protein" id="proBar" style="width:0"></i></div>
+    </div>
+    <div>
+      <div class="bar-h"><span class="lbl">Fiber</span><span id="fibTxt" class="muted">–</span></div>
+      <div class="track2"><i class="fiber" id="fibBar" style="width:0"></i></div>
+    </div>
+  </div>
+
+  <p class="small muted" id="goalNote" style="margin:12px 0 0" hidden>
+    No calorie budget yet — <a href="{{ url_for('profile_page') }}" style="color:var(--primary-deep);font-weight:700">set up your profile</a>
+    or a manual goal.
+  </p>
+</div>
+
+<div id="meals"></div>
+<div id="activity"></div>
+
+<div class="card">
+  <h2>Weight</h2>
+  <div class="row spread">
+    <div>
+      <b id="curWeight" class="hud" style="font-size:22px">–</b>
+      <span class="muted small" id="weightMeta"></span>
+    </div>
+    <div class="row" style="gap:6px">
+      <input type="number" id="weightIn" step="0.1" inputmode="decimal" placeholder="kg"
+             style="width:82px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:9px 10px">
+      <button class="btn sm" id="weightBtn">Log</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Add-food sheet ===== -->
+<div class="overlay" id="sheet" hidden>
+  <div class="sheet">
+    <div class="sheet-h">
+      <b id="sheetTitle">Add food</b>
+      <button class="icon-btn" id="sheetClose" aria-label="Close">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg>
+      </button>
+    </div>
+
+    <!-- view: pick -->
+    <div id="viewPick">
+      <div class="tabs">
+        <button data-tab="search" class="active">Search</button>
+        <button data-tab="quick">Quick add</button>
+        <button data-tab="barcode">Barcode</button>
+      </div>
+
+      <div id="tabSearch">
+        <div class="field" style="margin:0">
+          <input type="search" id="searchIn" placeholder="Search foods — e.g. paneer, oats, banana" autocomplete="off">
+        </div>
+        <div class="results" id="searchResults"></div>
+      </div>
+
+      <div id="tabQuick" hidden>
+        <div class="field"><label>Description</label><input id="qName" placeholder="e.g. Office canteen lunch"></div>
+        <div class="grid2">
+          <div class="field"><label>Calories</label><input id="qCal" type="number" inputmode="numeric"></div>
+          <div class="field"><label>Protein (g)</label><input id="qPro" type="number" inputmode="decimal"></div>
+        </div>
+        <div class="grid2">
+          <div class="field"><label>Fiber (g)</label><input id="qFib" type="number" inputmode="decimal"></div>
+          <div class="field"><label>Meal</label>
+            <select id="qMeal">
+              <option value="breakfast">Breakfast</option><option value="lunch">Lunch</option>
+              <option value="dinner">Dinner</option><option value="snack" selected>Snack</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn" id="qAdd" style="width:100%">Add to log</button>
+      </div>
+
+      <div id="tabBarcode" hidden>
+        <div class="row" style="gap:8px">
+          <input id="bcIn" inputmode="numeric" placeholder="Barcode digits"
+                 style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px">
+          <button class="btn ghost" id="bcBtn">Look up</button>
+        </div>
+        <div id="bcResult" class="results"></div>
+      </div>
+    </div>
+
+    <!-- view: portion -->
+    <div id="viewPortion" hidden>
+      <button class="btn ghost sm" id="portionBack" style="margin-bottom:12px">‹ Back</button>
+      <div class="card" style="margin:0 0 14px">
+        <b id="pName">–</b>
+        <div class="small muted" id="pMeta"></div>
+      </div>
+      <div class="grid2">
+        <div class="field" id="pServingsWrap">
+          <label id="pServingsLbl">Servings</label>
+          <input id="pServings" type="number" step="0.25" inputmode="decimal" value="1">
+        </div>
+        <div class="field" id="pGramsWrap" hidden>
+          <label>Grams</label>
+          <input id="pGrams" type="number" step="1" inputmode="numeric" value="100">
+        </div>
+        <div class="field"><label>Meal</label>
+          <select id="pMeal">
+            <option value="breakfast">Breakfast</option><option value="lunch">Lunch</option>
+            <option value="dinner">Dinner</option><option value="snack">Snack</option>
+          </select>
+        </div>
+      </div>
+      <p class="small muted" id="pPreview" style="margin:2px 0 14px"></p>
+      <button class="btn" id="pConfirm" style="width:100%">Add to log</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Add-activity sheet ===== -->
+<div class="overlay" id="actSheet" hidden>
+  <div class="sheet">
+    <div class="sheet-h">
+      <b>Add activity</b>
+      <button class="icon-btn" id="actClose" aria-label="Close">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg>
+      </button>
+    </div>
+
+    <div class="tabs">
+      <button data-akind="cardio" class="active">Cardio</button>
+      <button data-akind="strength">Strength</button>
+    </div>
+
+    <datalist id="actCatalog"></datalist>
+
+    <div class="field">
+      <label>Exercise</label>
+      <input id="aName" list="actCatalog" autocomplete="off" placeholder="e.g. Elliptical, Leg press">
+    </div>
+
+    <div class="grid2" id="aCardioFields">
+      <div class="field"><label>Minutes</label><input id="aMinutes" type="number" inputmode="numeric" placeholder="10"></div>
+      <div class="field"><label>Calories burned <span class="muted" style="font-weight:400">— optional</span></label><input id="aKcalC" type="number" inputmode="numeric" placeholder="auto"></div>
+    </div>
+
+    <div id="aStrengthFields" hidden>
+      <div class="grid2">
+        <div class="field"><label>Sets</label><input id="aSets" type="number" inputmode="numeric" placeholder="3"></div>
+        <div class="field"><label>Reps / set</label><input id="aReps" type="number" inputmode="numeric" placeholder="12"></div>
+      </div>
+      <div class="grid2">
+        <div class="field"><label>Load (kg) <span class="muted" style="font-weight:400">— optional</span></label><input id="aLoad" type="number" inputmode="decimal" placeholder="—"></div>
+        <div class="field"><label>Calories burned <span class="muted" style="font-weight:400">— optional</span></label><input id="aKcalS" type="number" inputmode="numeric" placeholder="auto"></div>
+      </div>
+    </div>
+
+    <p class="small muted" id="aPreview" style="margin:0 0 14px"></p>
+    <div class="row" style="gap:10px">
+      <button class="btn" id="aAdd" style="flex:1">Add</button>
+      <button class="btn ghost" id="aDone">Done</button>
+    </div>
+    <p class="small muted" style="margin:12px 0 0">Estimates are rough (MET-based, scaled to your weight). Type a number to override.</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+const MEALS = ["breakfast", "lunch", "dinner", "snack"];
+const state = { date: null, summary: null, pick: null };
+
+function todayISO() {
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+function shiftDate(iso, days) {
+  // Operate entirely in UTC so toISOString() serialization doesn't roll the
+  // calendar date across a timezone offset.
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return dt.toISOString().slice(0, 10);
+}
+
+async function load() {
+  $("#dateInput").value = state.date;
+  // Every section starts collapsed. Manual expand/collapse is remembered for the
+  // rest of the visit (see the toggle listeners), and the section you just
+  // logged to is re-opened so you can see the new entry — but nothing opens on
+  // its own.
+  if (state.mealOpenForDate !== state.date) {
+    state.mealOpenForDate = state.date;
+    state.mealOpen = {};
+    MEALS.forEach((m) => (state.mealOpen[m] = false));
+    state.activityOpen = false;
+  }
+  try {
+    state.summary = await api("/api/summary?date=" + state.date);
+    render();
+  } catch (e) { toast(e.message); }
+  loadWeight();
+}
+
+function render() {
+  const s = state.summary;
+  const goal = s.goal.calories, food = s.totals.calories, remain = s.remaining.calories;
+  const burned = (s.totals.burned || 0);
+  const goalAdj = s.goal.calories_adjusted != null ? s.goal.calories_adjusted : goal;
+  const C = 389.56;
+
+  $("#kvGoal").textContent = goal == null ? "—" : fmt(goal);
+  $("#kvFood").textContent = fmt(food);
+  $("#kvExRow").hidden = burned <= 0;
+  $("#kvEx").textContent = "−" + fmt(burned);
+  $("#kvRemain").textContent = remain == null ? "—" : fmt(remain);
+  $("#kvRemainRow").classList.toggle("over", remain != null && remain < 0);
+  $("#goalNote").hidden = goal != null;
+
+  const pct = goalAdj ? Math.min(Math.max(food / goalAdj, 0), 1) : 0;
+  const over = goalAdj != null && food > goalAdj;
+  $("#ring").classList.toggle("over", over);
+  $(".ring .fill").style.strokeDashoffset = C * (1 - pct);
+  if (goal == null) {
+    $("#ringRemain").textContent = fmt(food);
+    $("#ringUnit").textContent = "kcal eaten";
+  } else if (over) {
+    $("#ringRemain").textContent = fmt(Math.abs(remain));
+    $("#ringUnit").textContent = "kcal over";
+  } else {
+    $("#ringRemain").textContent = fmt(remain);
+    $("#ringUnit").textContent = "kcal left";
+  }
+
+  macro("pro", s.totals.protein_g, s.goal.protein_g);
+  macro("fib", s.totals.fiber_g, s.goal.fiber_g);
+
+  renderMeals();
+  renderActivities();
+}
+
+function macro(key, have, goal) {
+  $("#" + key + "Txt").textContent = goal
+    ? `${Math.round(have)} / ${goal} g`
+    : `${Math.round(have)} g`;
+  $("#" + key + "Bar").style.width = goal ? Math.min(have / goal * 100, 100) + "%" : "0";
+}
+
+function renderMeals() {
+  const s = state.summary;
+  const wrap = $("#meals");
+  wrap.innerHTML = "";
+  for (const m of MEALS) {
+    const entries = s.meals[m] || [];
+    const kcal = entries.reduce((a, e) => a + e.calories, 0);
+    const det = document.createElement("details");
+    det.className = "meal";
+    det.open = !!(state.mealOpen && state.mealOpen[m]);
+    det.innerHTML = `
+      <summary>
+        <span class="mname">${m}</span>
+        <span class="mkcal">${fmt(kcal)} kcal</span>
+      </summary>
+      ${entries.map(entryRow).join("")}
+      <button class="addfood" data-meal="${m}">+ Add food</button>`;
+    det.addEventListener("toggle", () => {
+      if (state.mealOpen) state.mealOpen[m] = det.open;
+    });
+    wrap.appendChild(det);
+  }
+  $$("#meals .addfood").forEach((b) => b.addEventListener("click", () => openAdd(b.dataset.meal)));
+  $$("#meals .entry .del").forEach((b) => b.addEventListener("click", () => deleteEntry(+b.dataset.id)));
+}
+
+function entryRow(e) {
+  const sub = [];
+  if (e.brand) sub.push(e.brand);
+  if (e.servings && e.servings !== 1) sub.push("×" + e.servings);
+  if (e.protein_g) sub.push(Math.round(e.protein_g) + "g P");
+  return `<div class="entry">
+    <div class="en"><b>${escapeHtml(e.description)}</b><small>${sub.join(" · ")}</small></div>
+    <span class="ek">${fmt(e.calories)}</span>
+    <button class="del" data-id="${e.id}" aria-label="Delete">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4zM6 9h12l-1 11H7z"/></svg>
+    </button>
+  </div>`;
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+async function deleteEntry(id) {
+  try { await api("/api/log/" + id, { method: "DELETE" }); load(); toast("Removed"); }
+  catch (e) { toast(e.message); }
+}
+
+// ---------- activity ----------
+function renderActivities() {
+  const acts = (state.summary.activity && state.summary.activity.entries) || [];
+  const burned = state.summary.activity ? state.summary.activity.burned : 0;
+  const wrap = $("#activity");
+
+  const det = document.createElement("details");
+  det.className = "meal";
+  det.open = !!state.activityOpen;  // collapsed unless you opened it this visit
+  det.innerHTML = `
+    <summary>
+      <span class="mname">Activity</span>
+      <span class="mkcal">${burned > 0 ? "−" + fmt(burned) + " kcal" : "—"}</span>
+    </summary>
+    ${acts.length ? acts.map(activityRow).join("") : '<div class="empty">Nothing logged. Add a workout or some cardio.</div>'}
+    <button class="addfood" id="addActivityBtn">+ Add activity</button>`;
+  det.addEventListener("toggle", () => { state.activityOpen = det.open; });
+
+  wrap.innerHTML = "";
+  wrap.appendChild(det);
+  $("#addActivityBtn").addEventListener("click", openActivity);
+  $$("#activity .del").forEach((b) =>
+    b.addEventListener("click", () => deleteActivity(+b.dataset.id))
+  );
+}
+
+function activityRow(a) {
+  const sub = [];
+  if (a.duration_min) sub.push(Math.round(a.duration_min) + " min");
+  if (a.sets) sub.push(a.sets + (a.reps ? "×" + a.reps : " sets"));
+  if (a.weight_kg) sub.push(a.weight_kg + " kg");
+  if (a.manual_kcal) sub.push("manual");
+  return `<div class="entry">
+    <div class="en"><b>${escapeHtml(a.name)}</b><small>${sub.join(" · ")}</small></div>
+    <span class="ek" style="color:var(--primary)">−${fmt(a.calories_burned)}</span>
+    <button class="del" data-id="${a.id}" aria-label="Delete">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4zM6 9h12l-1 11H7z"/></svg>
+    </button>
+  </div>`;
+}
+
+async function deleteActivity(id) {
+  try { await api("/api/activity/" + id, { method: "DELETE" }); load(); toast("Removed"); }
+  catch (e) { toast(e.message); }
+}
+
+const actSheet = $("#actSheet");
+let actKind = "cardio";
+let catalogLoaded = false;
+
+async function openActivity() {
+  if (!catalogLoaded) {
+    try {
+      const { activities } = await api("/api/activities/catalog");
+      $("#actCatalog").innerHTML = activities.map((a) => `<option value="${escapeHtml(a.name)}">`).join("");
+      state.catalog = activities;
+      catalogLoaded = true;
+    } catch (e) {}
+  }
+  setAKind("cardio");
+  ["aName", "aMinutes", "aKcalC", "aSets", "aReps", "aLoad", "aKcalS"].forEach((id) => ($("#" + id).value = ""));
+  $("#aPreview").textContent = "";
+  actSheet.hidden = false;
+  setTimeout(() => $("#aName").focus(), 50);
+}
+function closeActivity() { actSheet.hidden = true; }
+// #addActivityBtn is (re)bound in renderActivities() since it lives inside the
+// rebuilt <details>.
+$("#actClose").addEventListener("click", closeActivity);
+$("#aDone").addEventListener("click", closeActivity);
+actSheet.addEventListener("click", (e) => { if (e.target === actSheet) closeActivity(); });
+
+function setAKind(k) {
+  actKind = k;
+  $$("#actSheet .tabs button").forEach((b) => b.classList.toggle("active", b.dataset.akind === k));
+  $("#aCardioFields").hidden = k !== "cardio";
+  $("#aStrengthFields").hidden = k !== "strength";
+  updateAPreview();
+}
+$$("#actSheet .tabs button").forEach((b) => b.addEventListener("click", () => {
+  setAKind(b.dataset.akind);
+  // if the typed name matches a catalog item of the other kind, keep it; harmless
+}));
+
+// Rough client-side hint only — the server recomputes authoritatively with a
+// full MET table. Here we just use the same default MET the server falls back to.
+const MET_FALLBACK = { cardio: 5.0, strength: 5.0 };
+function estimatePreview() {
+  const bw = state.bodyWeight || 70;
+  let met = MET_FALLBACK[actKind];
+  let mins;
+  if (actKind === "cardio") {
+    mins = parseFloat($("#aMinutes").value) || 0;
+    if (!mins) return null;
+  } else {
+    const sets = parseInt($("#aSets").value) || 0;
+    mins = sets ? sets * 3.5 : 0;
+    if (!mins) return null;
+  }
+  return Math.max(1, Math.round(met * 3.5 * bw / 200 * mins));
+}
+function updateAPreview() {
+  const manual = parseFloat(actKind === "cardio" ? $("#aKcalC").value : $("#aKcalS").value);
+  if (manual > 0) { $("#aPreview").textContent = `${fmt(manual)} kcal (your number)`; return; }
+  const est = estimatePreview();
+  $("#aPreview").textContent = est ? `≈ ${fmt(est)} kcal burned (estimated)` : "Enter minutes or sets for an estimate.";
+}
+["aName", "aMinutes", "aKcalC", "aSets", "aReps", "aLoad", "aKcalS"].forEach((id) =>
+  $("#" + id).addEventListener("input", updateAPreview)
+);
+
+async function addActivity() {
+  const name = $("#aName").value.trim();
+  if (!name) { toast("Name the exercise"); return; }
+  const payload = { kind: actKind, name, date: state.date };
+  if (actKind === "cardio") {
+    payload.duration_min = parseFloat($("#aMinutes").value) || null;
+    payload.calories_burned = parseFloat($("#aKcalC").value) || null;
+  } else {
+    payload.sets = parseInt($("#aSets").value) || null;
+    payload.reps = parseInt($("#aReps").value) || null;
+    payload.weight_kg = parseFloat($("#aLoad").value) || null;
+    payload.calories_burned = parseFloat($("#aKcalS").value) || null;
+  }
+  try {
+    await api("/api/activity", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    });
+    ["aName", "aMinutes", "aKcalC", "aSets", "aReps", "aLoad", "aKcalS"].forEach((id) => ($("#" + id).value = ""));
+    $("#aPreview").textContent = "";
+    $("#aName").focus();
+    state.activityOpen = true;
+    load();
+    toast("Logged");
+  } catch (e) { toast(e.message); }
+}
+$("#aAdd").addEventListener("click", addActivity);
+
+// ---------- weight ----------
+async function loadWeight() {
+  try {
+    const { weight } = await api("/api/weight");
+    const last = weight[weight.length - 1];
+    if (last) state.bodyWeight = last.weight_kg;
+    $("#curWeight").textContent = last ? last.weight_kg + " kg" : "—";
+    $("#weightMeta").textContent = last ? "  " + last.entry_date : "  no entries yet";
+  } catch (e) {}
+}
+$("#weightBtn").addEventListener("click", async () => {
+  const v = parseFloat($("#weightIn").value);
+  if (!v) return;
+  try {
+    await api("/api/weight", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ weight_kg: v, date: state.date }),
+    });
+    $("#weightIn").value = "";
+    loadWeight(); load(); toast("Weight logged");
+  } catch (e) { toast(e.message); }
+});
+
+// ---------- date nav ----------
+$("#prevDay").addEventListener("click", () => { state.date = shiftDate(state.date, -1); load(); });
+$("#nextDay").addEventListener("click", () => { state.date = shiftDate(state.date, 1); load(); });
+$("#todayBtn").addEventListener("click", () => { state.date = todayISO(); load(); });
+$("#dateInput").addEventListener("change", (e) => { state.date = e.target.value || todayISO(); load(); });
+
+// ---------- add sheet ----------
+const sheet = $("#sheet");
+function openAdd(meal) {
+  state.addMeal = meal || "snack";
+  showView("pick");
+  switchTab("search");
+  $("#searchIn").value = "";
+  $("#searchResults").innerHTML = "";
+  $("#qMeal").value = state.addMeal;
+  sheet.hidden = false;
+  setTimeout(() => $("#searchIn").focus(), 50);
+}
+function closeSheet() { sheet.hidden = true; }
+$("#sheetClose").addEventListener("click", closeSheet);
+sheet.addEventListener("click", (e) => { if (e.target === sheet) closeSheet(); });
+
+function showView(v) {
+  $("#viewPick").hidden = v !== "pick";
+  $("#viewPortion").hidden = v !== "portion";
+  $("#sheetTitle").textContent = v === "portion" ? "Portion" : "Add food";
+}
+$("#portionBack").addEventListener("click", () => showView("pick"));
+
+function switchTab(name) {
+  $$(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+  $("#tabSearch").hidden = name !== "search";
+  $("#tabQuick").hidden = name !== "quick";
+  $("#tabBarcode").hidden = name !== "barcode";
+}
+$$(".tabs button").forEach((b) => b.addEventListener("click", () => switchTab(b.dataset.tab)));
+
+// ---------- search ----------
+let searchT;
+$("#searchIn").addEventListener("input", () => {
+  clearTimeout(searchT);
+  searchT = setTimeout(doSearch, 280);
+});
+async function doSearch() {
+  const q = $("#searchIn").value.trim();
+  const box = $("#searchResults");
+  if (q.length < 2) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="empty">Searching…</div>`;
+  let data;
+  try { data = await api("/api/foods/search?q=" + encodeURIComponent(q)); }
+  catch (e) { box.innerHTML = `<div class="empty">${e.message}</div>`; return; }
+
+  const parts = [];
+  if (data.local.length) {
+    parts.push(`<div class="src-head">Your foods</div>`);
+    parts.push(data.local.map(localRes).join(""));
+  }
+  if (data.off.length) {
+    parts.push(`<div class="src-head">Open Food Facts</div>`);
+    parts.push(data.off.map(offRes).join(""));
+  }
+  if (!data.local.length && !data.off.length) {
+    parts.push(`<div class="empty">No matches.${data.off_enabled ? "" : " (Open Food Facts is off)"} Try Quick add.</div>`);
+  }
+  box.innerHTML = parts.join("");
+  $$("[data-local]", box).forEach((el) => el.addEventListener("click", () => pickLocal(JSON.parse(el.dataset.local))));
+  $$("[data-off]", box).forEach((el) => el.addEventListener("click", () => pickOff(JSON.parse(el.dataset.off))));
+}
+function localRes(f) {
+  const tag = f.source === "curated" ? "curated" : (f.source === "off" ? "off" : "custom");
+  return `<button class="res" data-local='${attr(JSON.stringify(f))}'>
+    <span class="tag ${tag}">${tag}</span>
+    <span class="rn"><b>${escapeHtml(f.name)}</b><small>${escapeHtml(f.brand || "")} ${f.serving_desc ? "· " + escapeHtml(f.serving_desc) : ""}</small></span>
+    <span class="rk">${fmt(f.calories)}</span>
+  </button>`;
+}
+function offRes(o) {
+  return `<button class="res" data-off='${attr(JSON.stringify(o))}'>
+    <span class="tag off">OFF</span>
+    <span class="rn"><b>${escapeHtml(o.name)}</b><small>${escapeHtml(o.brand || "")} · per 100 g</small></span>
+    <span class="rk">${fmt(o.kcal_100g)}</span>
+  </button>`;
+}
+function attr(s) { return s.replace(/'/g, "&#39;"); }
+
+// ---------- portion ----------
+function pickLocal(f) {
+  state.pick = { mode: "food", food: f };
+  $("#pName").textContent = f.name;
+  $("#pMeta").textContent = [f.brand, f.serving_desc, fmt(f.calories) + " kcal/serving"].filter(Boolean).join(" · ");
+  $("#pServingsWrap").hidden = false;
+  $("#pGramsWrap").hidden = true;
+  $("#pServingsLbl").textContent = "Servings";
+  $("#pServings").value = 1;
+  $("#pMeal").value = state.addMeal;
+  updatePreview();
+  showView("portion");
+}
+function pickOff(o) {
+  state.pick = { mode: "off", item: o };
+  $("#pName").textContent = o.name;
+  $("#pMeta").textContent = [o.brand, fmt(o.kcal_100g) + " kcal / 100 g"].filter(Boolean).join(" · ");
+  $("#pServingsWrap").hidden = true;
+  $("#pGramsWrap").hidden = false;
+  $("#pGrams").value = o.serving_grams || 100;
+  $("#pMeal").value = state.addMeal;
+  updatePreview();
+  showView("portion");
+}
+$("#pServings").addEventListener("input", updatePreview);
+$("#pGrams").addEventListener("input", updatePreview);
+function updatePreview() {
+  const p = state.pick;
+  if (!p) return;
+  let kcal, pro, fib;
+  if (p.mode === "food") {
+    const n = parseFloat($("#pServings").value) || 0;
+    kcal = (p.food.calories || 0) * n; pro = (p.food.protein_g || 0) * n; fib = (p.food.fiber_g || 0) * n;
+  } else {
+    const g = parseFloat($("#pGrams").value) || 0;
+    kcal = (p.item.kcal_100g || 0) * g / 100;
+    pro = (p.item.protein_100g || 0) * g / 100;
+    fib = (p.item.fiber_100g || 0) * g / 100;
+  }
+  $("#pPreview").textContent = `≈ ${fmt(kcal)} kcal · ${Math.round(pro)} g protein · ${Math.round(fib)} g fiber`;
+}
+$("#pConfirm").addEventListener("click", async () => {
+  const p = state.pick;
+  const meal = $("#pMeal").value;
+  let payload;
+  if (p.mode === "food") {
+    payload = { mode: "food", food_id: p.food.id, servings: parseFloat($("#pServings").value) || 1, meal, date: state.date };
+  } else {
+    payload = {
+      mode: "off", off_code: p.item.off_code, name: p.item.name, brand: p.item.brand,
+      kcal_100g: p.item.kcal_100g, protein_100g: p.item.protein_100g, fiber_100g: p.item.fiber_100g,
+      carbs_100g: p.item.carbs_100g, fat_100g: p.item.fat_100g,
+      grams: parseFloat($("#pGrams").value) || 100, meal, date: state.date,
+    };
+  }
+  try {
+    await api("/api/log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (state.mealOpen) state.mealOpen[meal] = true;
+    closeSheet(); load(); toast("Added");
+  } catch (e) { toast(e.message); }
+});
+
+// ---------- quick add ----------
+$("#qAdd").addEventListener("click", async () => {
+  const payload = {
+    mode: "quick", description: $("#qName").value.trim(),
+    calories: parseFloat($("#qCal").value), protein_g: parseFloat($("#qPro").value) || 0,
+    fiber_g: parseFloat($("#qFib").value) || 0, meal: $("#qMeal").value, date: state.date,
+  };
+  if (!payload.description || isNaN(payload.calories)) { toast("Need a description and calories"); return; }
+  try {
+    await api("/api/log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (state.mealOpen) state.mealOpen[payload.meal] = true;
+    $("#qName").value = $("#qCal").value = $("#qPro").value = $("#qFib").value = "";
+    closeSheet(); load(); toast("Added");
+  } catch (e) { toast(e.message); }
+});
+
+// ---------- barcode ----------
+$("#bcBtn").addEventListener("click", async () => {
+  const code = $("#bcIn").value.trim();
+  const box = $("#bcResult");
+  if (!code) return;
+  box.innerHTML = `<div class="empty">Looking up…</div>`;
+  try {
+    const o = await api("/api/foods/barcode/" + encodeURIComponent(code));
+    box.innerHTML = offRes(o);
+    $("[data-off]", box).addEventListener("click", () => pickOff(o));
+  } catch (e) { box.innerHTML = `<div class="empty">${e.message}</div>`; }
+});
+
+// ---------- boot ----------
+state.date = todayISO();
+load();
+</script>
+{% endblock %}

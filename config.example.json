@@ -1,0 +1,8 @@
+{
+  "timezone": "Europe/Berlin",
+  "openfoodfacts": {
+    "enabled": true,
+    "timeout_seconds": 5,
+    "user_agent": "calorie-tracker/0.1 (personal homelab app)"
+  }
+}
