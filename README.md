@@ -59,8 +59,15 @@ core loop, stripped to what drives weight change.
 
 The background is a faint flat-lay illustration (tomatoes on the vine, basil,
 chili, garlic, rosemary, a board arc, a measuring tape, a dumbbell) — a seamless
-380px tile, `static/bg.svg` for light and `static/bg-dark.svg` for dark, laid at
-~8–10% opacity behind the content. Cards stay opaque so it only reads as texture.
+400px tile, `static/bg.svg` for light and `static/bg-dark.svg` for dark. The
+fade (~7–9%) is baked into the SVGs and they're a `background-image` layer on
+`<body>` (a `::before` at `z-index:-1` renders *below* the body colour and is
+invisible). Cards are opaque so it only reads as texture in the margins.
+
+Layout is single-column on mobile (the wrappers are `display:contents`); at
+≥940px Today becomes a two-column dashboard (ring + meals / activity + body),
+History's charts go two-up, and `.wrap` widens to use the screen. Profile stays
+narrow.
 
 ## Data
 
