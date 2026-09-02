@@ -14,6 +14,7 @@ A manual calorie goal on the profile always wins. If height / birth year /
 weight are missing, auto-calc can't run and the goal is None until the user
 either fills the profile or sets a manual number.
 """
+import math
 from datetime import date
 
 ACTIVITY_FACTORS = {
@@ -39,6 +40,38 @@ def age_from_birth_year(birth_year, today=None):
 def bmr_mifflin(sex, weight_kg, height_cm, age):
     base = 10 * weight_kg + 6.25 * height_cm - 5 * age
     return base + 5 if sex == "male" else base - 161
+
+
+def navy_body_fat(sex, height_cm, waist_cm, neck_cm, hip_cm=None):
+    """US Navy circumference method, metric form. Returns an estimated body-fat
+    percentage (rounded to 0.1) or None if the inputs it needs are missing or
+    out of range. It's an estimate, not a measurement — good for trend, not
+    for a precise number."""
+    if not (height_cm and waist_cm and neck_cm):
+        return None
+    try:
+        if sex == "female":
+            if not hip_cm:
+                return None
+            denom = (
+                1.29579
+                - 0.35004 * math.log10(waist_cm + hip_cm - neck_cm)
+                + 0.22100 * math.log10(height_cm)
+            )
+        else:
+            if waist_cm - neck_cm <= 0:
+                return None
+            denom = (
+                1.0324
+                - 0.19077 * math.log10(waist_cm - neck_cm)
+                + 0.15456 * math.log10(height_cm)
+            )
+        bf = 495.0 / denom - 450.0
+    except (ValueError, ZeroDivisionError):
+        return None
+    if bf <= 0 or bf >= 75:
+        return None
+    return round(bf, 1)
 
 
 def compute_targets(profile, current_weight, today=None):

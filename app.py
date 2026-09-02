@@ -227,6 +227,14 @@ def api_summary():
         },
         "meals": meals,
         "activity": {"entries": [_activity_view(a) for a in acts], "burned": burned},
+        "body": {
+            "weight_kg": db.latest_weight(on_or_before=d),
+            "waist_cm": db.latest_measurement("waist", on_or_before=d),
+            "neck_cm": db.latest_measurement("neck", on_or_before=d),
+            "body_fat_pct": _body_fat_for(profile, d),
+            "goal_waist_cm": profile.get("goal_waist_cm"),
+            "goal_weight_kg": profile.get("goal_weight_kg"),
+        },
     })
 
 
@@ -239,6 +247,7 @@ def api_food_search():
     if len(q) < 2:
         return jsonify({"query": q, "local": [], "off": [], "off_enabled": offapi.enabled()})
     local = db.search_foods(q, limit=20)
+    recent = db.recent_quick_entries(q, limit=6)
     want_off = request.args.get("off", "1") != "0"
     off_items = offapi.search(q) if (want_off and offapi.enabled()) else []
     seen_codes = {f["off_code"] for f in local if f.get("off_code")}
@@ -246,6 +255,7 @@ def api_food_search():
     return jsonify({
         "query": q,
         "local": local,
+        "recent": recent,
         "off": off_items,
         "off_enabled": offapi.enabled(),
     })
@@ -524,6 +534,19 @@ def api_history():
     avg_cal = round(sum(x["calories"] for x in food_days) / len(food_days)) if food_days else None
     active_days = sum(1 for x in out_days if x["burned"])
 
+    waist = db.measurement_series("waist")
+    neck = db.measurement_series("neck")
+    bf_series = []
+    for w in waist:
+        bf = nutrition.navy_body_fat(
+            profile.get("sex") or "male",
+            profile.get("height_cm"),
+            w["value_cm"],
+            db.latest_measurement("neck", on_or_before=w["entry_date"]),
+        )
+        if bf is not None:
+            bf_series.append({"entry_date": w["entry_date"], "value": bf})
+
     return jsonify({
         "days": out_days,
         "range_days": days,
@@ -533,6 +556,10 @@ def api_history():
         "weight": db.weight_series(),
         "start_weight_kg": profile.get("start_weight_kg"),
         "goal_weight_kg": profile.get("goal_weight_kg"),
+        "waist": waist,
+        "neck": neck,
+        "body_fat": bf_series,
+        "goal_waist_cm": profile.get("goal_waist_cm"),
     })
 
 
@@ -559,6 +586,57 @@ def api_weight_add():
 @app.route("/api/weight/<int:entry_id>", methods=["DELETE"])
 def api_weight_delete(entry_id):
     if not db.delete_weight(entry_id):
+        return _err(404, "entry not found")
+    return jsonify({"ok": True})
+
+
+# --------------------------------------------------------------------------
+# API — body measurements (waist / neck)
+# --------------------------------------------------------------------------
+MEASURE_RANGE = {"waist": (30, 250), "neck": (15, 80), "hip": (40, 250)}
+
+
+def _body_fat_for(profile, on_date=None):
+    """Navy-method body-fat estimate using the most recent waist/neck on or
+    before `on_date` (or the latest overall when `on_date` is None)."""
+    waist = db.latest_measurement("waist", on_or_before=on_date)
+    neck = db.latest_measurement("neck", on_or_before=on_date)
+    hip = db.latest_measurement("hip", on_or_before=on_date)
+    return nutrition.navy_body_fat(
+        profile.get("sex") or "male", profile.get("height_cm"), waist, neck, hip
+    )
+
+
+@app.route("/api/measure/<kind>", methods=["GET"])
+def api_measure_list(kind):
+    if kind not in db.MEASUREMENT_KINDS:
+        return _err(404, "unknown measurement")
+    return jsonify({"kind": kind, "series": db.measurement_series(kind)})
+
+
+@app.route("/api/measure/<kind>", methods=["POST"])
+def api_measure_add(kind):
+    if kind not in db.MEASUREMENT_KINDS:
+        return _err(404, "unknown measurement")
+    data = request.get_json(silent=True) or {}
+    value = _num(data.get("value_cm"))
+    lo, hi = MEASURE_RANGE[kind]
+    if value is None or value < lo or value > hi:
+        return _err(400, f"value_cm must be between {lo} and {hi}")
+    entry_date = _parse_date(data.get("date"))
+    note = (data.get("note") or "").strip()[:200] or None
+    db.upsert_measurement(kind, entry_date, value, note)
+    return jsonify({
+        "ok": True,
+        "kind": kind,
+        "series": db.measurement_series(kind),
+        "body_fat_pct": _body_fat_for(db.get_profile()),
+    }), 201
+
+
+@app.route("/api/measure/<int:entry_id>", methods=["DELETE"])
+def api_measure_delete(entry_id):
+    if not db.delete_measurement(entry_id):
         return _err(404, "entry not found")
     return jsonify({"ok": True})
 
@@ -600,7 +678,8 @@ def api_profile_update():
         if k in data:
             v = _num(data.get(k))
             fields[k] = int(v) if v else None
-    for k in ("height_cm", "target_rate_kg_per_week", "start_weight_kg", "goal_weight_kg"):
+    for k in ("height_cm", "target_rate_kg_per_week", "start_weight_kg",
+              "goal_weight_kg", "goal_waist_cm"):
         if k in data:
             fields[k] = _num(data.get(k))
 

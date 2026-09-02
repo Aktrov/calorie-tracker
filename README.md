@@ -18,16 +18,20 @@ core loop, stripped to what drives weight change.
 
 ## Features
 
-- **Today** — date switcher, calorie ring (eaten vs. goal + remaining), protein
-  and fiber bars, per-meal accordion (breakfast / lunch / dinner / snack),
-  activity log, quick weight log. The meal and activity sections are collapsible
+- **Today** — date switcher (can't go past today), calorie ring (eaten vs. goal
+  + remaining), protein and fiber bars, per-meal accordion
+  (breakfast / lunch / dinner / snack), activity log, body measurements. The
+  meal and activity sections are collapsible
   accordions that all start **collapsed** — nothing opens on its own. Your
   manual expand/collapse is remembered for the visit, and the section you just
   logged to re-opens so you can see the new entry.
 - **Add food** — three ways:
   - **Search** the curated local database (~150 common Indian + Western foods)
-    *and* Open Food Facts live. Local hits first; OFF results are cached into the
-    local DB on log so they are searchable offline next time.
+    *and* Open Food Facts live. Anything you've logged before is ranked to the
+    top (most-recent first, with a "N×" badge), including past free-text
+    "quick add" entries — tap one to re-log it with the same numbers. Matching
+    is word-order tolerant ("rice basmati" finds "Basmati rice"). OFF results are
+    cached into the local DB on log so they're searchable offline next time.
   - **Quick add** — free-text description + calories (+ optional protein / fiber).
   - **Barcode** — look a product up on Open Food Facts by its barcode digits.
 - **Add activity** — log **cardio** (name + minutes) or **strength** (name +
@@ -43,9 +47,13 @@ core loop, stripped to what drives weight change.
   (Mifflin–St Jeor BMR × activity factor = TDEE, minus a deficit from your target
   rate, floored at a safe minimum). A manual calorie / protein / fiber goal
   overrides the calc. The budget panel shows every step.
+- **Body measurements** — weight, plus optional **waist** and **neck**, logged
+  whenever you measure (never required). Waist + neck + height give an
+  **estimated body-fat %** (US Navy circumference method) shown on Today and
+  trended on History. A goal waist draws a target line on the waist chart.
 - **History** — calories/day vs. the goal line (7 / 14 / 30 / 90 days; the goal
-  line rises on days you logged exercise), weight trend with a goal-weight line,
-  average intake, days logged, days active.
+  line rises on days you logged exercise), plus weight / waist / body-fat trend
+  charts. Average intake, days logged, days active.
 - **PWA** — installable, `display: standalone`, offline app shell via a service
   worker. Add to home screen like the command deck.
 
@@ -62,6 +70,11 @@ content; cards stay opaque so it only reads as texture.
   food row never rewrite history.
 - `activity_entries` store the calories-burned figure used at log time; editing
   inputs re-estimates unless you set a manual number (`manual_kcal`).
+- Weight keeps its own table (`weight_entries`) because the TDEE math depends on
+  it. Other measurements go in `body_measurements` keyed by `kind`
+  (`waist` / `neck` / `hip`), one value per (profile, date, kind). Additive
+  columns/tables land via `db.MIGRATIONS` / `CREATE TABLE IF NOT EXISTS` on boot
+  — no destructive migrations.
 
 ## Open Food Facts
 
@@ -103,6 +116,7 @@ the `openfoodfacts` block (`enabled`, `timeout_seconds`, `user_agent`).
 | PUT/DELETE | `/api/activity/<id>` | Edit / remove an activity |
 | GET | `/api/history?days=N` | Per-day calories vs goal, burned, weight series |
 | GET/POST | `/api/weight`, DELETE `/api/weight/<id>` | Weight log |
+| GET/POST | `/api/measure/<kind>` (`waist`/`neck`), DELETE `/api/measure/<id>` | Body measurement log |
 | GET/POST | `/api/profile` | Profile + computed targets |
 | GET | `/manifest.webmanifest`, `/sw.js` | PWA |
 

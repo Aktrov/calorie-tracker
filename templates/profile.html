@@ -49,7 +49,11 @@
     <div class="field"><label>Start weight (kg)</label><input id="f_start_weight_kg" type="number" step="0.1" inputmode="decimal"></div>
     <div class="field"><label>Goal weight (kg)</label><input id="f_goal_weight_kg" type="number" step="0.1" inputmode="decimal"></div>
   </div>
-  <p class="small muted">Start weight is the fallback used for the budget until you log a weight on the Today page.</p>
+  <div class="grid2">
+    <div class="field"><label>Goal waist (cm)</label><input id="f_goal_waist_cm" type="number" step="0.5" inputmode="decimal"></div>
+    <div></div>
+  </div>
+  <p class="small muted">Start weight is the fallback used for the budget until you log a weight on the Today page. Goal waist draws the target line on the waist chart.</p>
 </div>
 
 <div class="card">
@@ -68,12 +72,12 @@
 <script>
 const FIELDS = [
   "name", "sex", "birth_year", "height_cm", "activity_level", "goal_type",
-  "target_rate_kg_per_week", "start_weight_kg", "goal_weight_kg",
+  "target_rate_kg_per_week", "start_weight_kg", "goal_weight_kg", "goal_waist_cm",
   "manual_calorie_goal", "manual_protein_goal", "manual_fiber_goal",
 ];
 const NUM = new Set([
   "birth_year", "height_cm", "target_rate_kg_per_week", "start_weight_kg",
-  "goal_weight_kg", "manual_calorie_goal", "manual_protein_goal", "manual_fiber_goal",
+  "goal_weight_kg", "goal_waist_cm", "manual_calorie_goal", "manual_protein_goal", "manual_fiber_goal",
 ]);
 
 async function load() {

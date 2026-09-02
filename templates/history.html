@@ -33,6 +33,24 @@
     <span><i style="background:var(--fiber)"></i>Goal weight</span>
   </div>
 </div>
+
+<div class="card">
+  <h2>Waist trend <span class="muted" id="waistDelta" style="text-transform:none;font-weight:400"></span></h2>
+  <svg class="chart" id="waistChart" viewBox="0 0 700 210" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="legend">
+    <span><i style="background:var(--primary)"></i>Waist (cm)</span>
+    <span><i style="background:var(--fiber)"></i>Goal waist</span>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Body fat trend <span class="muted" id="bfDelta" style="text-transform:none;font-weight:400"></span></h2>
+  <svg class="chart" id="bfChart" viewBox="0 0 700 210" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="legend">
+    <span><i style="background:var(--primary)"></i>Est. body fat %</span>
+    <span class="muted">US Navy method — needs waist + neck + height. An estimate; watch the trend.</span>
+  </div>
+</div>
 {% endblock %}
 
 {% block script %}
@@ -67,7 +85,22 @@ async function load() {
   }
 
   drawCalChart(data.days);
-  drawWeightChart(data.weight, data.goal_weight_kg, data.start_weight_kg);
+  drawLineChart("wChart", data.weight, "weight_kg", data.goal_weight_kg, 1,
+                "No weight entries yet — log one on the Today page.");
+  drawLineChart("waistChart", data.waist, "value_cm", data.goal_waist_cm, 1,
+                "No waist entries yet — log one on the Today page.");
+  drawLineChart("bfChart", data.body_fat, "value", null, 1,
+                "Log waist and neck on the Today page to estimate body fat.");
+
+  setDelta("waistDelta", data.waist, "value_cm", " cm");
+  setDelta("bfDelta", data.body_fat, "value", "%");
+}
+
+function setDelta(id, series, key, unit) {
+  const s = series || [];
+  if (s.length < 2) { $("#" + id).textContent = ""; return; }
+  const d = +(s[s.length - 1][key] - s[0][key]).toFixed(1);
+  $("#" + id).textContent = "— " + (d > 0 ? "+" : "") + d + unit + " over range";
 }
 
 function drawCalChart(rows) {
@@ -113,26 +146,26 @@ function drawCalChart(rows) {
   });
 }
 
-function drawWeightChart(w, goalW, startW) {
-  const svg = $("#wChart");
+function drawLineChart(svgId, series, key, goalVal, decimals, emptyMsg) {
+  const svg = $("#" + svgId);
   svg.innerHTML = "";
   const W = 700, H = 210, padL = 44, padR = 12, padT = 12, padB = 26;
   const iw = W - padL - padR, ih = H - padT - padB;
+  const pts = (series || []).map((d) => ({ date: d.entry_date, v: d[key] }));
 
-  if (!w.length) {
-    el("text", { x: W / 2, y: H / 2, "text-anchor": "middle" }, svg).textContent = "No weight entries yet — log one on the Today page.";
+  if (!pts.length) {
+    el("text", { x: W / 2, y: H / 2, "text-anchor": "middle" }, svg).textContent = emptyMsg;
     return;
   }
 
-  const vals = w.map((d) => d.weight_kg);
-  if (goalW) vals.push(goalW);
-  if (startW) vals.push(startW);
+  const vals = pts.map((d) => d.v);
+  if (goalVal) vals.push(goalVal);
   let lo = Math.min(...vals), hi = Math.max(...vals);
   if (hi - lo < 2) { lo -= 1; hi += 1; }
   const pad = (hi - lo) * 0.1; lo -= pad; hi += pad;
 
-  const t0 = new Date(w[0].entry_date).getTime();
-  const t1 = new Date(w[w.length - 1].entry_date).getTime();
+  const t0 = new Date(pts[0].date).getTime();
+  const t1 = new Date(pts[pts.length - 1].date).getTime();
   const span = Math.max(1, t1 - t0);
   const x = (d) => padL + iw * ((new Date(d).getTime() - t0) / span);
   const y = (v) => padT + ih * (1 - (v - lo) / (hi - lo));
@@ -141,21 +174,21 @@ function drawWeightChart(w, goalW, startW) {
     const yy = padT + ih * (g / 4);
     el("line", { x1: padL, y1: yy, x2: W - padR, y2: yy, class: "baseline" }, svg);
     el("text", { x: padL - 6, y: yy + 3, "text-anchor": "end" }, svg)
-      .textContent = (hi - (hi - lo) * (g / 4)).toFixed(1);
+      .textContent = (hi - (hi - lo) * (g / 4)).toFixed(decimals);
   }
 
-  if (goalW) {
-    el("line", { x1: padL, y1: y(goalW), x2: W - padR, y2: y(goalW), class: "goalline" }, svg);
+  if (goalVal) {
+    el("line", { x1: padL, y1: y(goalVal), x2: W - padR, y2: y(goalVal), class: "goalline" }, svg);
   }
 
-  const line = w.map((d) => x(d.entry_date) + "," + y(d.weight_kg)).join(" ");
-  el("polyline", { points: line, class: "wline" }, svg);
-  w.forEach((d) => el("circle", { cx: x(d.entry_date), cy: y(d.weight_kg), r: 3, class: "wdot" }, svg));
-
-  if (w.length > 1) {
-    [w[0], w[w.length - 1]].forEach((d) => {
-      el("text", { x: x(d.entry_date), y: y(d.weight_kg) - 8, "text-anchor": "middle" }, svg)
-        .textContent = d.weight_kg;
+  if (pts.length === 1) {
+    el("circle", { cx: x(pts[0].date), cy: y(pts[0].v), r: 3.5, class: "wdot" }, svg);
+  } else {
+    el("polyline", { points: pts.map((d) => x(d.date) + "," + y(d.v)).join(" "), class: "wline" }, svg);
+    pts.forEach((d) => el("circle", { cx: x(d.date), cy: y(d.v), r: 3, class: "wdot" }, svg));
+    [pts[0], pts[pts.length - 1]].forEach((d) => {
+      el("text", { x: x(d.date), y: y(d.v) - 8, "text-anchor": "middle" }, svg)
+        .textContent = (+d.v).toFixed(decimals);
     });
   }
 }

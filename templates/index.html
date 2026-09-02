@@ -53,18 +53,45 @@
 <div id="activity"></div>
 
 <div class="card">
-  <h2>Weight</h2>
-  <div class="row spread">
+  <h2>Body</h2>
+
+  <div class="measure-row">
     <div>
-      <b id="curWeight" class="hud" style="font-size:22px">–</b>
+      <span class="measure-lbl">Weight</span>
+      <b id="curWeight" class="hud">–</b>
       <span class="muted small" id="weightMeta"></span>
     </div>
     <div class="row" style="gap:6px">
-      <input type="number" id="weightIn" step="0.1" inputmode="decimal" placeholder="kg"
-             style="width:82px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:9px 10px">
+      <input type="number" id="weightIn" step="0.1" inputmode="decimal" placeholder="kg" class="measure-in">
       <button class="btn sm" id="weightBtn">Log</button>
     </div>
   </div>
+
+  <div class="measure-row">
+    <div>
+      <span class="measure-lbl">Waist</span>
+      <b id="curWaist" class="hud">–</b>
+      <span class="muted small" id="waistMeta"></span>
+    </div>
+    <div class="row" style="gap:6px">
+      <input type="number" id="waistIn" step="0.5" inputmode="decimal" placeholder="cm" class="measure-in">
+      <button class="btn sm ghost" id="waistBtn">Log</button>
+    </div>
+  </div>
+
+  <div class="measure-row">
+    <div>
+      <span class="measure-lbl">Neck</span>
+      <b id="curNeck" class="hud">–</b>
+      <span class="muted small" id="neckMeta"></span>
+    </div>
+    <div class="row" style="gap:6px">
+      <input type="number" id="neckIn" step="0.5" inputmode="decimal" placeholder="cm" class="measure-in">
+      <button class="btn sm ghost" id="neckBtn">Log</button>
+    </div>
+  </div>
+
+  <p class="small muted" id="bfLine" style="margin:10px 0 0" hidden></p>
 </div>
 
 <!-- ===== Add-food sheet ===== -->
@@ -216,7 +243,10 @@ function shiftDate(iso, days) {
 }
 
 async function load() {
+  const t = todayISO();
   $("#dateInput").value = state.date;
+  $("#dateInput").max = t;
+  $("#nextDay").disabled = state.date >= t;   // no looking into the future
   // Every section starts collapsed. Manual expand/collapse is remembered for the
   // rest of the visit (see the toggle listeners), and the section you just
   // logged to is re-opened so you can see the new entry — but nothing opens on
@@ -269,6 +299,35 @@ function render() {
 
   renderMeals();
   renderActivities();
+  renderBody();
+}
+
+function renderBody() {
+  const b = state.summary.body || {};
+  setMeasure("curWaist", "waistMeta", b.waist_cm, b.goal_waist_cm, "cm");
+  setMeasure("curNeck", "neckMeta", b.neck_cm, null, "cm");
+  const bf = b.body_fat_pct;
+  const line = $("#bfLine");
+  if (bf != null) {
+    line.hidden = false;
+    line.innerHTML =
+      `Est. body fat <b style="font-family:var(--font-display);color:var(--text)">${bf}%</b>` +
+      ` <span class="muted">· US Navy method (waist − neck + height), an estimate — track the trend, not the exact number</span>`;
+  } else {
+    line.hidden = true;
+  }
+}
+
+function setMeasure(valId, metaId, val, goal, unit) {
+  $("#" + valId).textContent = val != null ? val + " " + unit : "—";
+  const meta = $("#" + metaId);
+  if (val == null) { meta.textContent = "  not logged yet"; return; }
+  if (goal != null) {
+    const d = +(val - goal).toFixed(1);
+    meta.textContent = d > 0.05 ? `  ${d} ${unit} to goal (${goal})` : `  at goal (${goal})`;
+  } else {
+    meta.textContent = "";
+  }
 }
 
 function macro(key, have, goal) {
@@ -286,7 +345,7 @@ function renderMeals() {
     const entries = s.meals[m] || [];
     const kcal = entries.reduce((a, e) => a + e.calories, 0);
     const det = document.createElement("details");
-    det.className = "meal";
+    det.className = "meal meal-" + m;
     det.open = !!(state.mealOpen && state.mealOpen[m]);
     det.innerHTML = `
       <summary>
@@ -333,7 +392,7 @@ function renderActivities() {
   const wrap = $("#activity");
 
   const det = document.createElement("details");
-  det.className = "meal";
+  det.className = "meal meal-activity";
   det.open = !!state.activityOpen;  // collapsed unless you opened it this visit
   det.innerHTML = `
     <summary>
@@ -487,11 +546,34 @@ $("#weightBtn").addEventListener("click", async () => {
   } catch (e) { toast(e.message); }
 });
 
-// ---------- date nav ----------
-$("#prevDay").addEventListener("click", () => { state.date = shiftDate(state.date, -1); load(); });
-$("#nextDay").addEventListener("click", () => { state.date = shiftDate(state.date, 1); load(); });
-$("#todayBtn").addEventListener("click", () => { state.date = todayISO(); load(); });
-$("#dateInput").addEventListener("change", (e) => { state.date = e.target.value || todayISO(); load(); });
+function wireMeasure(kind, inId, btnId) {
+  $("#" + btnId).addEventListener("click", async () => {
+    const v = parseFloat($("#" + inId).value);
+    if (!v) return;
+    try {
+      await api("/api/measure/" + kind, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value_cm: v, date: state.date }),
+      });
+      $("#" + inId).value = "";
+      load();
+      toast(kind[0].toUpperCase() + kind.slice(1) + " logged");
+    } catch (e) { toast(e.message); }
+  });
+}
+wireMeasure("waist", "waistIn", "waistBtn");
+wireMeasure("neck", "neckIn", "neckBtn");
+
+// ---------- date nav (never past today) ----------
+function goToDate(iso) {
+  const t = todayISO();
+  state.date = iso > t ? t : iso;
+  load();
+}
+$("#prevDay").addEventListener("click", () => goToDate(shiftDate(state.date, -1)));
+$("#nextDay").addEventListener("click", () => goToDate(shiftDate(state.date, 1)));
+$("#todayBtn").addEventListener("click", () => goToDate(todayISO()));
+$("#dateInput").addEventListener("change", (e) => goToDate(e.target.value || todayISO()));
 
 // ---------- add sheet ----------
 const sheet = $("#sheet");
@@ -539,29 +621,77 @@ async function doSearch() {
   try { data = await api("/api/foods/search?q=" + encodeURIComponent(q)); }
   catch (e) { box.innerHTML = `<div class="empty">${e.message}</div>`; return; }
 
+  const recent = data.recent || [];
+  const loggedLocals = data.local.filter((f) => f.use_count > 0);
+  const freshLocals = data.local.filter((f) => !f.use_count);
+
   const parts = [];
-  if (data.local.length) {
-    parts.push(`<div class="src-head">Your foods</div>`);
-    parts.push(data.local.map(localRes).join(""));
+  if (recent.length || loggedLocals.length) {
+    parts.push(`<div class="src-head">Logged before</div>`);
+    parts.push(recent.map(recentRes).join(""));
+    parts.push(loggedLocals.map(localRes).join(""));
+  }
+  if (freshLocals.length) {
+    parts.push(`<div class="src-head">Foods</div>`);
+    parts.push(freshLocals.map(localRes).join(""));
   }
   if (data.off.length) {
     parts.push(`<div class="src-head">Open Food Facts</div>`);
     parts.push(data.off.map(offRes).join(""));
   }
-  if (!data.local.length && !data.off.length) {
+  if (!recent.length && !data.local.length && !data.off.length) {
     parts.push(`<div class="empty">No matches.${data.off_enabled ? "" : " (Open Food Facts is off)"} Try Quick add.</div>`);
   }
   box.innerHTML = parts.join("");
   $$("[data-local]", box).forEach((el) => el.addEventListener("click", () => pickLocal(JSON.parse(el.dataset.local))));
   $$("[data-off]", box).forEach((el) => el.addEventListener("click", () => pickOff(JSON.parse(el.dataset.off))));
+  $$("[data-recent]", box).forEach((el) => el.addEventListener("click", () => reLogQuick(JSON.parse(el.dataset.recent))));
 }
+
+function relTime(iso) {
+  if (!iso) return "";
+  const days = Math.round((Date.now() - new Date(iso + "T00:00:00").getTime()) / 86400000);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 7) return days + "d ago";
+  if (days < 31) return Math.round(days / 7) + "w ago";
+  return Math.round(days / 30) + "mo ago";
+}
+
 function localRes(f) {
-  const tag = f.source === "curated" ? "curated" : (f.source === "off" ? "off" : "custom");
+  const tag = f.use_count
+    ? `<span class="tag hist">${f.use_count}×</span>`
+    : `<span class="tag ${f.source === "curated" ? "curated" : f.source === "off" ? "off" : "custom"}">${f.source === "off" ? "OFF" : f.source}</span>`;
+  const sub = [f.brand, f.serving_desc, f.use_count ? "last " + relTime(f.last_used) : ""].filter(Boolean).join(" · ");
   return `<button class="res" data-local='${attr(JSON.stringify(f))}'>
-    <span class="tag ${tag}">${tag}</span>
-    <span class="rn"><b>${escapeHtml(f.name)}</b><small>${escapeHtml(f.brand || "")} ${f.serving_desc ? "· " + escapeHtml(f.serving_desc) : ""}</small></span>
+    ${tag}
+    <span class="rn"><b>${escapeHtml(f.name)}</b><small>${escapeHtml(sub)}</small></span>
     <span class="rk">${fmt(f.calories)}</span>
   </button>`;
+}
+
+function recentRes(r) {
+  const sub = `quick add · ${r.use_count}× · last ${relTime(r.last_used)}`;
+  return `<button class="res" data-recent='${attr(JSON.stringify(r))}'>
+    <span class="tag hist">${r.use_count}×</span>
+    <span class="rn"><b>${escapeHtml(r.description)}</b><small>${escapeHtml(sub)}</small></span>
+    <span class="rk">${fmt(r.calories)}</span>
+  </button>`;
+}
+
+async function reLogQuick(r) {
+  try {
+    await api("/api/log", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "quick", description: r.description, calories: r.calories,
+        protein_g: r.protein_g, fiber_g: r.fiber_g,
+        meal: state.addMeal, date: state.date,
+      }),
+    });
+    if (state.mealOpen) state.mealOpen[state.addMeal] = true;
+    closeSheet(); load(); toast("Added");
+  } catch (e) { toast(e.message); }
 }
 function offRes(o) {
   return `<button class="res" data-off='${attr(JSON.stringify(o))}'>

@@ -81,6 +81,23 @@ CREATE TABLE IF NOT EXISTS weight_entries (
     UNIQUE(profile_id, entry_date)
 );
 
+-- Occasional body measurements other than weight (waist, neck, hip, …).
+-- Weight keeps its own table because TDEE math depends on it; everything else
+-- lives here keyed by `kind`. One value per (profile, date, kind); logging is
+-- always optional.
+CREATE TABLE IF NOT EXISTS body_measurements (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id  INTEGER NOT NULL REFERENCES profiles(id),
+    entry_date  TEXT    NOT NULL,
+    kind        TEXT    NOT NULL,           -- waist | neck | hip
+    value_cm    REAL    NOT NULL,
+    note        TEXT,
+    created_at  TEXT    NOT NULL,
+    UNIQUE(profile_id, entry_date, kind)
+);
+CREATE INDEX IF NOT EXISTS idx_measure_profile_kind_date
+    ON body_measurements(profile_id, kind, entry_date);
+
 CREATE TABLE IF NOT EXISTS activity_entries (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     profile_id      INTEGER NOT NULL REFERENCES profiles(id),
@@ -106,7 +123,9 @@ CREATE TABLE IF NOT EXISTS meta (
 """
 
 # Additive migrations: {table: {column: "TYPE ..."}}. Applied only when missing.
-MIGRATIONS = {}
+MIGRATIONS = {
+    "profiles": {"goal_waist_cm": "REAL"},
+}
 
 
 def _now():
@@ -195,7 +214,7 @@ def init_db():
 # --------------------------------------------------------------------------
 PROFILE_FIELDS = {
     "name", "sex", "birth_year", "height_cm", "activity_level", "goal_type",
-    "target_rate_kg_per_week", "start_weight_kg", "goal_weight_kg",
+    "target_rate_kg_per_week", "start_weight_kg", "goal_weight_kg", "goal_waist_cm",
     "manual_calorie_goal", "manual_protein_goal", "manual_fiber_goal",
 }
 
@@ -229,21 +248,92 @@ def update_profile(fields, profile_id=ACTIVE_PROFILE_ID):
 # --------------------------------------------------------------------------
 # Foods
 # --------------------------------------------------------------------------
-def search_foods(query, limit=20):
+def _word_match(query, col_expr):
+    """(sql_fragment, params) that is true when every whitespace-separated token
+    of `query` appears (case-insensitive substring) in `col_expr`. Order- and
+    gap-tolerant, so "beet fried" matches "Pan fried beetroot"."""
+    words = [w for w in query.split() if w]
+    if not words:
+        return "0", []
+    frag = " AND ".join(f"{col_expr} LIKE ? COLLATE NOCASE" for _ in words)
+    return frag, [f"%{w}%" for w in words]
+
+
+def search_foods(query, limit=20, profile_id=ACTIVE_PROFILE_ID):
+    """Search the food table, ranking things this profile has actually logged
+    to the top (most-recent first), then by how often. `query` is matched
+    fuzzily: all of its words must appear somewhere in name+brand, any order."""
+    q = query.strip()
+    if not q:
+        return []
     conn = get_conn()
     try:
-        like = f"%{query.strip()}%"
+        where_sql, where_params = _word_match(q, "(f.name || ' ' || COALESCE(f.brand, ''))")
         rows = conn.execute(
-            """SELECT * FROM foods
-               WHERE name LIKE ? COLLATE NOCASE OR brand LIKE ? COLLATE NOCASE
-               ORDER BY
-                 CASE source WHEN 'curated' THEN 0 WHEN 'custom' THEN 1 ELSE 2 END,
-                 CASE WHEN name LIKE ? COLLATE NOCASE THEN 0 ELSE 1 END,
-                 length(name), name
-               LIMIT ?""",
-            (like, like, f"{query.strip()}%", limit),
+            f"""
+            SELECT f.*,
+                   COALESCE(u.use_count, 0) AS use_count,
+                   u.last_used             AS last_used
+            FROM foods f
+            LEFT JOIN (
+                SELECT food_id, COUNT(*) AS use_count, MAX(entry_date) AS last_used
+                FROM log_entries
+                WHERE profile_id = ? AND food_id IS NOT NULL
+                GROUP BY food_id
+            ) u ON u.food_id = f.id
+            WHERE {where_sql}
+            ORDER BY
+                CASE WHEN u.use_count > 0 THEN 0 ELSE 1 END,
+                u.last_used DESC,
+                u.use_count DESC,
+                CASE WHEN f.name LIKE ? COLLATE NOCASE THEN 0 ELSE 1 END,
+                CASE f.source WHEN 'curated' THEN 0 WHEN 'custom' THEN 1 ELSE 2 END,
+                length(f.name), f.name
+            LIMIT ?
+            """,
+            [profile_id, *where_params, f"{q}%", limit],
         ).fetchall()
         return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def recent_quick_entries(query, limit=6, profile_id=ACTIVE_PROFILE_ID):
+    """Past free-text ("quick add") log entries whose description fuzzily
+    matches `query`, newest first, with the macros from their most recent use
+    so they can be re-logged in one tap."""
+    q = query.strip()
+    if not q:
+        return []
+    conn = get_conn()
+    try:
+        where_sql, where_params = _word_match(q, "description")
+        groups = conn.execute(
+            f"""SELECT description, COUNT(*) AS use_count, MAX(entry_date) AS last_used
+                FROM log_entries
+                WHERE profile_id = ? AND food_id IS NULL AND {where_sql}
+                GROUP BY description
+                ORDER BY last_used DESC, use_count DESC
+                LIMIT ?""",
+            [profile_id, *where_params, limit],
+        ).fetchall()
+        out = []
+        for g in groups:
+            m = conn.execute(
+                """SELECT calories, protein_g, fiber_g FROM log_entries
+                   WHERE profile_id = ? AND food_id IS NULL AND description = ?
+                   ORDER BY created_at DESC LIMIT 1""",
+                (profile_id, g["description"]),
+            ).fetchone()
+            out.append({
+                "description": g["description"],
+                "use_count": g["use_count"],
+                "last_used": g["last_used"],
+                "calories": round((m["calories"] if m else 0) or 0, 1),
+                "protein_g": round((m["protein_g"] if m else 0) or 0, 1),
+                "fiber_g": round((m["fiber_g"] if m else 0) or 0, 1),
+            })
+        return out
     finally:
         conn.close()
 
@@ -576,5 +666,76 @@ def latest_weight(on_or_before=None, profile_id=ACTIVE_PROFILE_ID):
                 (profile_id,),
             ).fetchone()
         return row["weight_kg"] if row else None
+    finally:
+        conn.close()
+
+
+# --------------------------------------------------------------------------
+# Body measurements (waist / neck / …) — same optional cadence as weight
+# --------------------------------------------------------------------------
+MEASUREMENT_KINDS = ("waist", "neck", "hip")
+
+
+def upsert_measurement(kind, entry_date, value_cm, note=None, profile_id=ACTIVE_PROFILE_ID):
+    conn = get_conn()
+    try:
+        conn.execute(
+            """INSERT INTO body_measurements
+               (profile_id, entry_date, kind, value_cm, note, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(profile_id, entry_date, kind) DO UPDATE SET
+                 value_cm = excluded.value_cm,
+                 note     = excluded.note""",
+            (profile_id, entry_date, kind, value_cm, note, _now()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def delete_measurement(entry_id, profile_id=ACTIVE_PROFILE_ID):
+    conn = get_conn()
+    try:
+        cur = conn.execute(
+            "DELETE FROM body_measurements WHERE id = ? AND profile_id = ?",
+            (entry_id, profile_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def measurement_series(kind, profile_id=ACTIVE_PROFILE_ID, limit=400):
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            """SELECT id, entry_date, value_cm, note FROM body_measurements
+               WHERE profile_id = ? AND kind = ? ORDER BY entry_date""",
+            (profile_id, kind),
+        ).fetchall()
+        return [dict(r) for r in rows][-limit:]
+    finally:
+        conn.close()
+
+
+def latest_measurement(kind, on_or_before=None, profile_id=ACTIVE_PROFILE_ID):
+    conn = get_conn()
+    try:
+        if on_or_before:
+            row = conn.execute(
+                """SELECT value_cm FROM body_measurements
+                   WHERE profile_id = ? AND kind = ? AND entry_date <= ?
+                   ORDER BY entry_date DESC LIMIT 1""",
+                (profile_id, kind, on_or_before),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                """SELECT value_cm FROM body_measurements
+                   WHERE profile_id = ? AND kind = ?
+                   ORDER BY entry_date DESC LIMIT 1""",
+                (profile_id, kind),
+            ).fetchone()
+        return row["value_cm"] if row else None
     finally:
         conn.close()

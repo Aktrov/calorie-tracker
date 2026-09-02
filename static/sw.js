@@ -1,7 +1,7 @@
 /* calorie-tracker service worker — minimal offline shell.
    Network-first for navigations and API calls (so data stays fresh), with a
    cached fallback when offline. Cache-first for static assets. */
-const CACHE = "calorie-tracker-v4";
+const CACHE = "calorie-tracker-v7";
 const CORE = ["", "history", "profile", "static/logo.svg", "static/styles.css", "static/bg.svg"];
 
 self.addEventListener("install", (event) => {
