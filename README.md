@@ -4,6 +4,7 @@ A personal food + calorie log with a daily budget and a weight trend. Log what
 you eat, see calories in vs. your target, watch the weekly trend. HealthifyMe's
 core loop, stripped to what drives weight change.
 
+- **Repo:** `git@github.com:Aktrov/calorie-tracker.git`
 - **Stack:** Flask + SQLite, single process.
 - **Bind:** `127.0.0.1:5200` only.
 - **Tailnet mount:** `https://groot.tail088f09.ts.net/calorie-tracker/`
