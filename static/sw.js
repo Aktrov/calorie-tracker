@@ -1,7 +1,9 @@
 /* calorie-tracker service worker — minimal offline shell.
-   Network-first for navigations and API calls (so data stays fresh), with a
-   cached fallback when offline. Cache-first for static assets. */
-const CACHE = "calorie-tracker-v8";
+   Network-first for navigations and API calls (so data stays fresh).
+   Stale-while-revalidate for static assets: serve the cached copy instantly,
+   but always re-fetch in the background so edits land on the next load without
+   needing a CACHE version bump. */
+const CACHE = "calorie-tracker-v9";
 const CORE = ["", "history", "profile", "static/logo.svg", "static/styles.css", "static/bg.svg", "static/bg-dark.svg"];
 
 self.addEventListener("install", (event) => {
@@ -32,11 +34,16 @@ self.addEventListener("fetch", (event) => {
   const isStatic = url.pathname.includes("/static/");
   if (isStatic) {
     event.respondWith(
-      caches.match(req).then((hit) => hit || fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(req, copy));
-        return res;
-      }))
+      caches.match(req).then((hit) => {
+        const fetching = fetch(req)
+          .then((res) => {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy));
+            return res;
+          })
+          .catch(() => hit);
+        return hit || fetching;
+      })
     );
     return;
   }
