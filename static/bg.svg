@@ -1,36 +1,83 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
-  <g fill="none" stroke="#5a9e6f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-    <!-- leaf -->
-    <g transform="translate(22,24) rotate(-12)">
-      <path d="M20 2 C 34 8 34 30 20 40 C 6 30 6 8 20 2 Z"/>
-      <path d="M20 6 L 20 38"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="380" height="380" viewBox="0 0 380 380">
+  <!-- Light-theme background: a faint flat-illustration "kitchen flat-lay" —
+       tomatoes on the vine, basil, chili, garlic, rosemary, a round board arc,
+       a measuring-tape curl and a dumbbell. Seamless 380px tile. -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- round board arc, bottom-right corner (tiles into a full circle) -->
+    <g transform="translate(320,320)">
+      <path d="M-8 66 A 52 52 0 0 1 66 -8" stroke="#d9b98f" stroke-width="9"/>
+      <path d="M-3 66 A 47 47 0 0 1 66 -3" stroke="#bd9668" stroke-width="1.6" opacity=".55"/>
     </g>
-    <!-- apple -->
-    <g transform="translate(150,38) rotate(8)">
-      <path d="M20 12 C 15 6 5 8 5 18 C 5 30 14 40 20 40 C 26 40 35 30 35 18 C 35 8 25 6 20 12 Z"/>
-      <path d="M20 12 L 20 4"/>
-      <path d="M20 8 C 24 3 30 3 32 6 C 30 10 24 11 20 8 Z"/>
+    <g transform="translate(-60,-60)">
+      <path d="M-8 66 A 52 52 0 0 1 66 -8" stroke="#d9b98f" stroke-width="9"/>
     </g>
+
+    <!-- cherry tomatoes on a vine -->
+    <g transform="translate(24,30) rotate(-8)">
+      <path d="M4 6 q16 8 30 5" stroke="#4f8a44" stroke-width="3"/>
+      <circle cx="8" cy="18" r="8" fill="#cf6a5c" stroke="#b04d40" stroke-width="1.5"/>
+      <circle cx="24" cy="22" r="8.5" fill="#cf6a5c" stroke="#b04d40" stroke-width="1.5"/>
+      <circle cx="16" cy="34" r="8" fill="#cf6a5c" stroke="#b04d40" stroke-width="1.5"/>
+      <path d="M8 11 l0 -4 M6 11 l-3 -3 M10 11 l3 -3" stroke="#4f8a44" stroke-width="1.6"/>
+      <path d="M24 14 l0 -4 M22 14 l-3 -3 M26 14 l3 -3" stroke="#4f8a44" stroke-width="1.6"/>
+    </g>
+
+    <!-- basil sprig -->
+    <g transform="translate(252,24) rotate(10)">
+      <path d="M20 42 C 20 26 20 20 20 8" stroke="#4f8a44" stroke-width="2"/>
+      <path d="M20 14 C 9 9 4 16 11 25 C 18 25 23 19 20 14 Z" fill="#5f9e54" stroke="#4f8a44" stroke-width="1"/>
+      <path d="M20 21 C 31 16 36 23 29 32 C 22 32 17 26 20 21 Z" fill="#5f9e54" stroke="#4f8a44" stroke-width="1"/>
+      <path d="M20 30 C 11 27 7 34 14 41 C 21 41 23 35 20 30 Z" fill="#5f9e54" stroke="#4f8a44" stroke-width="1"/>
+    </g>
+
+    <!-- chili pepper -->
+    <g transform="translate(44,210) rotate(-4)">
+      <path d="M4 6 q3 -6 9 -4" stroke="#4f8a44" stroke-width="2"/>
+      <path d="M10 4 C 24 6 40 18 46 38 C 48 47 39 49 34 42 C 25 29 12 20 6 8 Z"
+            fill="#d07358" stroke="#b45640" stroke-width="1.4"/>
+    </g>
+
+    <!-- garlic bulb -->
+    <g transform="translate(300,150) rotate(6)">
+      <path d="M24 8 C 18 8 20 13 20 15 M24 8 C 30 8 28 13 28 15" stroke="#c9b89c" stroke-width="1.6"/>
+      <path d="M8 27 C 8 15 18 13 24 13 C 30 13 40 15 40 27 C 40 39 32 45 24 45 C 16 45 8 39 8 27 Z"
+            fill="#efe7d8" stroke="#c9b89c" stroke-width="1.5"/>
+      <path d="M24 14 L 24 44 M16 16 C 13 25 14 35 20 43 M32 16 C 35 25 34 35 28 43"
+            stroke="#c9b89c" stroke-width="1" opacity=".7"/>
+    </g>
+
+    <!-- rosemary sprig -->
+    <g transform="translate(140,296) rotate(-6)" stroke="#7bab70" stroke-width="2">
+      <path d="M6 44 C 16 30 26 16 40 6"/>
+      <path d="M12 34 l-6 -3 M12 34 l-2 -7 M20 24 l-6 -3 M20 24 l-2 -7 M28 16 l-6 -2 M28 16 l-1 -7"/>
+    </g>
+
+    <!-- measuring-tape curl (fitness) -->
+    <g transform="translate(196,150) rotate(8)">
+      <path d="M8 30 C 8 12 44 12 44 28 C 44 42 20 44 18 32" stroke="#c99a4e" stroke-width="7"/>
+      <path d="M8 30 C 8 12 44 12 44 28 C 44 42 20 44 18 32" stroke="#e7c47f" stroke-width="4.5"/>
+      <path d="M14 17 l0 4 M22 13 l0 4 M31 13 l0 4 M40 18 l0 4 M44 30 l3 0" stroke="#c99a4e" stroke-width="1.4"/>
+      <rect x="4" y="27" width="7" height="7" rx="1.5" fill="#c99a4e"/>
+    </g>
+
+    <!-- water drop -->
+    <g transform="translate(120,86) rotate(6)">
+      <path d="M16 2 C 16 2 30 20 16 30 C 2 20 16 2 16 2 Z" stroke="#8fbac2" stroke-width="2.4"/>
+    </g>
+
     <!-- dumbbell -->
-    <g transform="translate(38,150) rotate(-6)">
+    <g transform="translate(318,54) rotate(-10)" stroke="#a49e91" stroke-width="2.4">
       <path d="M4 12 L 4 28 M10 8 L 10 32 M10 20 L 30 20 M30 8 L 30 32 M36 12 L 36 28"/>
     </g>
-    <!-- water drop -->
-    <g transform="translate(186,168) rotate(10)">
-      <path d="M18 2 C 18 2 34 22 18 34 C 2 22 18 2 18 2 Z"/>
-    </g>
-    <!-- kettlebell -->
-    <g transform="translate(118,196) rotate(-4)">
-      <path d="M8 40 C 4 24 10 18 20 18 C 30 18 36 24 32 40 Z"/>
-      <path d="M13 18 C 13 8 27 8 27 18"/>
-    </g>
-    <!-- sprig -->
-    <g transform="translate(196,26) rotate(6)">
-      <path d="M6 34 C 6 20 16 10 30 8 M16 22 C 12 18 12 12 16 8 M22 16 C 20 11 22 6 27 5"/>
-    </g>
-    <!-- small drop -->
-    <g transform="translate(26,196) rotate(4)">
-      <path d="M14 2 C 14 2 26 17 14 26 C 2 17 14 2 14 2 Z"/>
+
+    <!-- scattered coarse salt -->
+    <g fill="#7c5c3f" opacity=".5" stroke="none">
+      <circle cx="96" cy="60" r="1.6"/><circle cx="104" cy="74" r="1.3"/>
+      <circle cx="250" cy="120" r="1.5"/><circle cx="262" cy="112" r="1.2"/>
+      <circle cx="70" cy="250" r="1.5"/><circle cx="150" cy="150" r="1.3"/>
+      <circle cx="330" cy="235" r="1.5"/><circle cx="200" cy="330" r="1.4"/>
+      <circle cx="40" cy="120" r="1.3"/><circle cx="290" cy="300" r="1.4"/>
     </g>
   </g>
 </svg>

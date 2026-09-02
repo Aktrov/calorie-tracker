@@ -57,8 +57,10 @@ core loop, stripped to what drives weight change.
 - **PWA** — installable, `display: standalone`, offline app shell via a service
   worker. Add to home screen like the command deck.
 
-The background is a faint tiled line-art pattern (`static/bg.svg`) behind the
-content; cards stay opaque so it only reads as texture.
+The background is a faint flat-lay illustration (tomatoes on the vine, basil,
+chili, garlic, rosemary, a board arc, a measuring tape, a dumbbell) — a seamless
+380px tile, `static/bg.svg` for light and `static/bg-dark.svg` for dark, laid at
+~8–10% opacity behind the content. Cards stay opaque so it only reads as texture.
 
 ## Data
 

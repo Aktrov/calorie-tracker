@@ -78,19 +78,24 @@ body {
   background-repeat: no-repeat;
   padding-bottom: calc(36px + env(safe-area-inset-bottom));
 }
-/* Faint on-theme motif pattern (leaf / apple / dumbbell / drop …) behind the
-   content. Cards are opaque, so this only reads as texture in the margins. */
+/* Faint flat-lay illustration (tomatoes on the vine, basil, chili, garlic,
+   rosemary, a board arc, a measuring tape, a dumbbell) behind the content.
+   Seamless tile, separate light/dark art. Cards are opaque, so it only reads
+   as texture around them. */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
   background-image: url("bg.svg");
-  background-size: 260px 260px;
-  opacity: .05;
+  background-size: 380px 380px;
+  opacity: .075;
   pointer-events: none;
 }
-:root[data-theme="dark"] body::before { opacity: .08; }
+:root[data-theme="dark"] body::before {
+  background-image: url("bg-dark.svg");
+  opacity: .10;
+}
 a { color: inherit; text-decoration: none; }
 button, input, select { font-family: inherit; font-size: inherit; color: inherit; }
 .hud, .brand span { font-family: var(--font-display); font-weight: 600; letter-spacing: .01em; }
