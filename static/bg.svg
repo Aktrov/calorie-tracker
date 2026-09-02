@@ -2,7 +2,7 @@
   <!-- Light-theme background: a faint flat-illustration "kitchen flat-lay" —
        tomatoes on the vine, basil, chili, garlic, rosemary, a round board arc,
        a measuring-tape curl and a dumbbell. Seamless 380px tile. -->
-  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.22">
 
     <!-- round board arc, bottom-right corner (tiles into a full circle) -->
     <g transform="translate(320,320)">
