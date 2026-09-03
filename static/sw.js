@@ -3,7 +3,7 @@
    Stale-while-revalidate for static assets: serve the cached copy instantly,
    but always re-fetch in the background so edits land on the next load without
    needing a CACHE version bump. */
-const CACHE = "calorie-tracker-v11";
+const CACHE = "calorie-tracker-v12";
 const CORE = ["", "history", "profile", "static/logo.svg", "static/styles.css", "static/bg.svg", "static/bg-dark.svg"];
 
 self.addEventListener("install", (event) => {

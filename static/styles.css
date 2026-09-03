@@ -330,15 +330,39 @@ button, input, select { font-family: inherit; font-size: inherit; color: inherit
   width: 100%; max-width: 640px;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 22px 22px 0 0;
-  max-height: 90svh; overflow-y: auto;
-  padding: 18px 18px calc(24px + env(safe-area-inset-bottom));
+  max-height: 92dvh;
+  display: flex; flex-direction: column; overflow: hidden;
+  padding: 16px 18px 0;
   box-shadow: 0 -8px 40px rgba(40,35,25,.18);
 }
 @media (min-width: 640px) {
   .overlay { align-items: center; }
   .sheet { border-radius: 22px; }
 }
-.sheet-h { display: flex; align-items: center; margin-bottom: 14px; }
+
+/* The sheet header + tab bar + search field stay put; only the results list
+   scrolls. Prevents them being pushed off-screen when the on-screen keyboard
+   shrinks the visible area. */
+.sheet-h { flex: none; display: flex; align-items: center; margin-bottom: 14px; }
+#viewPick { flex: 1 1 auto; min-height: 0; }
+#viewPick:not([hidden]) { display: flex; flex-direction: column; }
+#viewPick > .tabs { flex: none; }
+#tabSearch { flex: 1 1 auto; min-height: 0; }
+#tabSearch:not([hidden]) { display: flex; flex-direction: column; }
+#tabSearch > .field { flex: none; }
+#searchResults {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding-bottom: calc(18px + env(safe-area-inset-bottom));
+}
+#tabQuick, #tabBarcode, #viewPortion {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; overscroll-behavior: contain;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+}
+.sheet-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+}
 .sheet-h b { font-family: var(--font-display); font-weight: 600; font-size: 18px; }
 .sheet-h .icon-btn { margin-left: auto; }
 .tabs { display: flex; gap: 6px; margin-bottom: 16px; background: var(--surface-2); padding: 4px; border-radius: 999px; }

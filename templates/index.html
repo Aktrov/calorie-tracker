@@ -203,6 +203,7 @@
 
     <datalist id="actCatalog"></datalist>
 
+    <div class="sheet-scroll">
     <div class="field">
       <label>Exercise</label>
       <input id="aName" list="actCatalog" autocomplete="off" placeholder="e.g. Elliptical, Leg press">
@@ -230,6 +231,7 @@
       <button class="btn ghost" id="aDone">Done</button>
     </div>
     <p class="small muted" style="margin:12px 0 0">Estimates are rough (MET-based, scaled to your weight). Type a number to override.</p>
+    </div><!-- /sheet-scroll -->
   </div>
 </div>
 {% endblock %}
@@ -458,9 +460,10 @@ async function openActivity() {
   ["aName", "aMinutes", "aKcalC", "aSets", "aReps", "aLoad", "aKcalS"].forEach((id) => ($("#" + id).value = ""));
   $("#aPreview").textContent = "";
   actSheet.hidden = false;
-  setTimeout(() => $("#aName").focus(), 50);
+  fitSheets();
+  setTimeout(() => { $("#aName").focus(); fitSheets(); }, 60);
 }
-function closeActivity() { actSheet.hidden = true; }
+function closeActivity() { actSheet.hidden = true; fitSheets(); }
 // #addActivityBtn is (re)bound in renderActivities() since it lives inside the
 // rebuilt <details>.
 $("#actClose").addEventListener("click", closeActivity);
@@ -585,6 +588,30 @@ $("#nextDay").addEventListener("click", () => goToDate(shiftDate(state.date, 1))
 $("#todayBtn").addEventListener("click", () => goToDate(todayISO()));
 $("#dateInput").addEventListener("change", (e) => goToDate(e.target.value || todayISO()));
 
+// ---------- sheet sizing: keep bottom sheets inside the area the on-screen
+// keyboard leaves visible (Chrome Android doesn't shrink the layout viewport
+// for the keyboard, so a dvh-sized sheet would run off the top and bottom). ----
+function fitSheets() {
+  const vv = window.visualViewport;
+  $$(".overlay").forEach((o) => {
+    const s = o.querySelector(".sheet");
+    if (o.hidden || !vv) {
+      o.style.top = o.style.height = o.style.bottom = "";
+      if (s) s.style.maxHeight = "";
+      return;
+    }
+    o.style.top = vv.offsetTop + "px";
+    o.style.bottom = "auto";
+    o.style.height = vv.height + "px";
+    if (s) s.style.maxHeight = Math.round(vv.height * 0.96) + "px";
+  });
+}
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", fitSheets, { passive: true });
+  window.visualViewport.addEventListener("scroll", fitSheets, { passive: true });
+  window.addEventListener("orientationchange", () => setTimeout(fitSheets, 200));
+}
+
 // ---------- add sheet ----------
 const sheet = $("#sheet");
 function openAdd(meal) {
@@ -595,9 +622,10 @@ function openAdd(meal) {
   $("#searchResults").innerHTML = "";
   $("#qMeal").value = state.addMeal;
   sheet.hidden = false;
-  setTimeout(() => $("#searchIn").focus(), 50);
+  fitSheets();
+  setTimeout(() => { $("#searchIn").focus(); fitSheets(); }, 60);
 }
-function closeSheet() { sheet.hidden = true; }
+function closeSheet() { sheet.hidden = true; fitSheets(); }
 $("#sheetClose").addEventListener("click", closeSheet);
 sheet.addEventListener("click", (e) => { if (e.target === sheet) closeSheet(); });
 
@@ -653,6 +681,7 @@ async function doSearch() {
     parts.push(`<div class="empty">No matches.${data.off_enabled ? "" : " (Open Food Facts is off)"} Try Quick add.</div>`);
   }
   box.innerHTML = parts.join("");
+  box.scrollTop = 0;
   $$("[data-local]", box).forEach((el) => el.addEventListener("click", () => pickLocal(JSON.parse(el.dataset.local))));
   $$("[data-off]", box).forEach((el) => el.addEventListener("click", () => pickOff(JSON.parse(el.dataset.off))));
   $$("[data-recent]", box).forEach((el) => el.addEventListener("click", () => reLogQuick(JSON.parse(el.dataset.recent))));
