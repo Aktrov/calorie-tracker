@@ -15,13 +15,20 @@
   <div class="stat"><b id="stWeight">–</b><small>weight change</small></div>
 </div>
 
+<div class="card">
+  <h2>Calories by meal <span class="muted" id="mealTakeaway" style="text-transform:none;font-weight:400"></span></h2>
+  <div id="mealBars"></div>
+</div>
+
 <div class="hist-grid">
 <div class="card">
-  <h2>Calories vs goal</h2>
+  <h2>Calories vs goal, by meal</h2>
   <svg class="chart" id="calChart" viewBox="0 0 340 210" preserveAspectRatio="xMidYMid meet"></svg>
   <div class="legend">
-    <span><i style="background:var(--primary)"></i>Within goal</span>
-    <span><i style="background:var(--over)"></i>Over goal</span>
+    <span><i class="meal-breakfast"></i>Breakfast</span>
+    <span><i class="meal-lunch"></i>Lunch</span>
+    <span><i class="meal-dinner"></i>Dinner</span>
+    <span><i class="meal-snack"></i>Snack</span>
     <span><i style="background:var(--fiber)"></i>Goal (incl. exercise)</span>
   </div>
 </div>
@@ -86,6 +93,7 @@ async function load() {
     $("#stWeight").textContent = "–";
   }
 
+  renderMealBars(data);
   drawCalChart(data.days);
   drawLineChart("wChart", data.weight, "weight_kg", data.goal_weight_kg, 1,
                 "No weight logged yet");
@@ -105,6 +113,23 @@ function setDelta(id, series, key, unit) {
   $("#" + id).textContent = "— " + (d > 0 ? "+" : "") + d + unit + " over range";
 }
 
+const SEG_MEALS = ["breakfast", "lunch", "dinner", "snack"];
+
+function renderMealBars(data) {
+  const avg = data.meal_avg || {}, share = data.meal_share || {};
+  const max = Math.max(1, ...SEG_MEALS.map((m) => avg[m] || 0));
+  $("#mealBars").innerHTML = SEG_MEALS.map((m) => `
+    <div class="mealbar">
+      <span class="mealbar-lbl">${m}</span>
+      <div class="mealbar-track"><i class="meal-${m}" style="width:${((avg[m] || 0) / max) * 100}%"></i></div>
+      <span class="mealbar-val">${fmt(avg[m] || 0)}<small> kcal · ${share[m] || 0}%</small></span>
+    </div>`).join("");
+  const b = data.meal_biggest;
+  $("#mealTakeaway").textContent = b
+    ? `— ${b} is your biggest meal, ${share[b]}% of intake`
+    : "— nothing logged in this range";
+}
+
 function drawCalChart(rows) {
   const svg = $("#calChart");
   svg.innerHTML = "";
@@ -121,14 +146,19 @@ function drawCalChart(rows) {
   }
 
   rows.forEach((r, i) => {
-    if (r.calories > 0) {
-      const h = ih * (r.calories / maxV);
+    const bm = r.by_meal || {};
+    let acc = 0;
+    SEG_MEALS.forEach((m) => {
+      const v = bm[m] || 0;
+      if (v <= 0) return;
+      const yTop = padT + ih - ih * ((acc + v) / maxV);
       el("rect", {
-        x: padL + i * bw + bw * 0.15, y: padT + ih - h,
-        width: bw * 0.7, height: h, rx: 2,
-        class: "caro" + (goalRef(r) && r.calories > goalRef(r) ? " over" : ""),
+        x: padL + i * bw + bw * 0.15, y: yTop,
+        width: bw * 0.7, height: ih * (v / maxV),
+        class: "seg meal-" + m,
       }, svg);
-    }
+      acc += v;
+    });
   });
 
   // goal line (per-day; rises on days with logged exercise)

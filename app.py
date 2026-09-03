@@ -511,6 +511,7 @@ def api_history():
     profile = db.get_profile()
     totals = db.daily_totals(start.isoformat(), end.isoformat())
     burned_by_day = db.daily_burned(start.isoformat(), end.isoformat())
+    meal_by_day = db.daily_meal_calories(start.isoformat(), end.isoformat())
 
     out_days = []
     for i in range(days):
@@ -518,6 +519,7 @@ def api_history():
         t = totals.get(d, {"calories": 0, "protein_g": 0, "fiber_g": 0})
         goal = _daily_goal_for(profile, d)["calories"]
         burned = burned_by_day.get(d, 0)
+        mb = meal_by_day.get(d, {})
         out_days.append({
             "date": d,
             "calories": t["calories"],
@@ -527,12 +529,24 @@ def api_history():
             "goal": goal,
             "goal_adjusted": None if goal is None else int(round(goal + burned)),
             "logged": d in totals or d in burned_by_day,
+            "by_meal": {m: round(mb.get(m, 0), 1) for m in MEALS},
         })
 
     logged = [x for x in out_days if x["logged"]]
     food_days = [x for x in out_days if x["date"] in totals]
     avg_cal = round(sum(x["calories"] for x in food_days) / len(food_days)) if food_days else None
     active_days = sum(1 for x in out_days if x["burned"])
+
+    # calories by meal, averaged over days with any food logged
+    meal_totals = {m: 0.0 for m in MEALS}
+    for x in out_days:
+        for m in MEALS:
+            meal_totals[m] += x["by_meal"][m]
+    n_food = len(food_days) or 1
+    grand = sum(meal_totals.values())
+    meal_avg = {m: round(meal_totals[m] / n_food) for m in MEALS}
+    meal_share = {m: (round(meal_totals[m] / grand * 100) if grand else 0) for m in MEALS}
+    meal_biggest = max(MEALS, key=lambda m: meal_totals[m]) if grand else None
 
     waist = db.measurement_series("waist")
     neck = db.measurement_series("neck")
@@ -560,6 +574,9 @@ def api_history():
         "neck": neck,
         "body_fat": bf_series,
         "goal_waist_cm": profile.get("goal_waist_cm"),
+        "meal_avg": meal_avg,
+        "meal_share": meal_share,
+        "meal_biggest": meal_biggest,
     })
 
 

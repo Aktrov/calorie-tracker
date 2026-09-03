@@ -504,6 +504,25 @@ def daily_totals(start_date, end_date, profile_id=ACTIVE_PROFILE_ID):
         conn.close()
 
 
+def daily_meal_calories(start_date, end_date, profile_id=ACTIVE_PROFILE_ID):
+    """{date: {meal: kcal}} for food logged in [start, end]."""
+    conn = get_conn()
+    try:
+        rows = conn.execute(
+            """SELECT entry_date, meal, SUM(calories) AS kcal
+               FROM log_entries
+               WHERE profile_id = ? AND entry_date BETWEEN ? AND ?
+               GROUP BY entry_date, meal""",
+            (profile_id, start_date, end_date),
+        ).fetchall()
+        out = {}
+        for r in rows:
+            out.setdefault(r["entry_date"], {})[r["meal"]] = round(r["kcal"] or 0, 1)
+        return out
+    finally:
+        conn.close()
+
+
 # --------------------------------------------------------------------------
 # Activity entries
 # --------------------------------------------------------------------------

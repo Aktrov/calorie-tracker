@@ -404,12 +404,26 @@ button, input, select { font-family: inherit; font-size: inherit; color: inherit
 .chart .goalline { stroke: var(--fiber); stroke-dasharray: 4 4; stroke-width: 1.5; }
 .chart .caro { fill: var(--primary); }
 .chart .caro.over { fill: var(--over); }
+.chart .seg { fill: var(--meal, var(--primary)); }
 .chart .wline { stroke: var(--primary); fill: none; stroke-width: 2.5; }
 .chart .wdot { fill: var(--primary); }
 .chart text { fill: var(--text-soft); font-size: 12px; font-weight: 600; font-family: var(--font-body); }
 .chart text.emptytext { font-size: 11px; font-weight: 400; fill: var(--text-faint); }
 .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-soft); margin-top: 10px; }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 999px; margin-right: 6px; vertical-align: -1px; }
+.legend i[class*="meal-"] { background: var(--meal); }
+
+/* History: average calories by meal */
+.mealbar {
+  display: grid; grid-template-columns: 68px 1fr auto; align-items: center;
+  gap: 10px; padding: 8px 0;
+}
+.mealbar + .mealbar { border-top: 1px solid var(--border); }
+.mealbar-lbl { font-size: 13px; font-weight: 700; color: var(--text-soft); text-transform: capitalize; }
+.mealbar-track { height: 12px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.mealbar-track > i { display: block; height: 100%; border-radius: 999px; background: var(--meal, var(--primary)); transition: width .4s ease; }
+.mealbar-val { font-family: var(--font-display); font-weight: 600; font-size: 14px; white-space: nowrap; }
+.mealbar-val small { color: var(--text-faint); font-weight: 400; font-size: 11px; font-family: var(--font-body); }
 
 .statgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 14px; text-align: center; box-shadow: var(--shadow-sm); }
