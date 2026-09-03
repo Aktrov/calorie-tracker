@@ -51,9 +51,11 @@ core loop, stripped to what drives weight change.
   whenever you measure (never required). Waist + neck + height give an
   **estimated body-fat %** (US Navy circumference method) shown on Today and
   trended on History. A goal waist draws a target line on the waist chart.
-- **History** — calories/day vs. the goal line (7 / 14 / 30 / 90 days; the goal
-  line rises on days you logged exercise), plus weight / waist / body-fat trend
-  charts. Average intake, days logged, days active.
+- **History** — calories/day **stacked by meal** vs. the goal line (7 / 14 / 30 /
+  90 days; the goal line rises on days you logged exercise), a "Calories by meal"
+  breakdown (avg kcal/day and % of intake per meal, with a takeaway), plus
+  weight / waist / body-fat trend charts. Average intake, days logged, days
+  active.
 - **PWA** — installable, `display: standalone`, offline app shell via a service
   worker. Add to home screen like the command deck.
 
