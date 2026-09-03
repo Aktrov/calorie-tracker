@@ -18,7 +18,7 @@
 <div class="hist-grid">
 <div class="card">
   <h2>Calories vs goal</h2>
-  <svg class="chart" id="calChart" viewBox="0 0 700 210" preserveAspectRatio="xMidYMid meet"></svg>
+  <svg class="chart" id="calChart" viewBox="0 0 340 210" preserveAspectRatio="xMidYMid meet"></svg>
   <div class="legend">
     <span><i style="background:var(--primary)"></i>Within goal</span>
     <span><i style="background:var(--over)"></i>Over goal</span>
@@ -28,7 +28,7 @@
 
 <div class="card">
   <h2>Weight trend</h2>
-  <svg class="chart" id="wChart" viewBox="0 0 700 210" preserveAspectRatio="xMidYMid meet"></svg>
+  <svg class="chart" id="wChart" viewBox="0 0 340 210" preserveAspectRatio="xMidYMid meet"></svg>
   <div class="legend">
     <span><i style="background:var(--primary)"></i>Logged weight</span>
     <span><i style="background:var(--fiber)"></i>Goal weight</span>
@@ -37,7 +37,7 @@
 
 <div class="card">
   <h2>Waist trend <span class="muted" id="waistDelta" style="text-transform:none;font-weight:400"></span></h2>
-  <svg class="chart" id="waistChart" viewBox="0 0 700 210" preserveAspectRatio="xMidYMid meet"></svg>
+  <svg class="chart" id="waistChart" viewBox="0 0 340 210" preserveAspectRatio="xMidYMid meet"></svg>
   <div class="legend">
     <span><i style="background:var(--primary)"></i>Waist (cm)</span>
     <span><i style="background:var(--fiber)"></i>Goal waist</span>
@@ -46,7 +46,7 @@
 
 <div class="card">
   <h2>Body fat trend <span class="muted" id="bfDelta" style="text-transform:none;font-weight:400"></span></h2>
-  <svg class="chart" id="bfChart" viewBox="0 0 700 210" preserveAspectRatio="xMidYMid meet"></svg>
+  <svg class="chart" id="bfChart" viewBox="0 0 340 210" preserveAspectRatio="xMidYMid meet"></svg>
   <div class="legend">
     <span><i style="background:var(--primary)"></i>Est. body fat %</span>
     <span class="muted">US Navy method — needs waist + neck + height. An estimate; watch the trend.</span>
@@ -88,11 +88,11 @@ async function load() {
 
   drawCalChart(data.days);
   drawLineChart("wChart", data.weight, "weight_kg", data.goal_weight_kg, 1,
-                "No weight entries yet — log one on the Today page.");
+                "No weight logged yet");
   drawLineChart("waistChart", data.waist, "value_cm", data.goal_waist_cm, 1,
-                "No waist entries yet — log one on the Today page.");
+                "No waist logged yet");
   drawLineChart("bfChart", data.body_fat, "value", null, 1,
-                "Log waist and neck on the Today page to estimate body fat.");
+                "Log waist + neck to estimate");
 
   setDelta("waistDelta", data.waist, "value_cm", " cm");
   setDelta("bfDelta", data.body_fat, "value", "%");
@@ -108,7 +108,7 @@ function setDelta(id, series, key, unit) {
 function drawCalChart(rows) {
   const svg = $("#calChart");
   svg.innerHTML = "";
-  const W = 700, H = 210, padL = 44, padR = 12, padT = 12, padB = 26;
+  const W = 340, H = 210, padL = 40, padR = 8, padT = 18, padB = 24;
   const iw = W - padL - padR, ih = H - padT - padB;
   const goalRef = (r) => (r.goal_adjusted != null ? r.goal_adjusted : r.goal) || 0;
   const maxV = Math.max(1, ...rows.map((r) => Math.max(r.calories, goalRef(r)))) * 1.12;
@@ -117,7 +117,7 @@ function drawCalChart(rows) {
   for (let g = 0; g <= 4; g++) {
     const y = padT + ih * (g / 4);
     el("line", { x1: padL, y1: y, x2: W - padR, y2: y, class: "baseline" }, svg);
-    el("text", { x: padL - 6, y: y + 3, "text-anchor": "end" }, svg).textContent = Math.round(maxV * (1 - g / 4));
+    el("text", { x: padL - 5, y: y + 4, "text-anchor": "end" }, svg).textContent = Math.round(maxV * (1 - g / 4));
   }
 
   rows.forEach((r, i) => {
@@ -139,10 +139,10 @@ function drawCalChart(rows) {
     el("polyline", { points: pts.join(" "), class: "goalline", fill: "none", "stroke-width": 1.5 }, svg);
   }
 
-  const step = Math.ceil(rows.length / 8);
+  const step = Math.ceil(rows.length / 5);
   rows.forEach((r, i) => {
     if (i % step === 0) {
-      el("text", { x: padL + i * bw + bw / 2, y: H - 8, "text-anchor": "middle" }, svg)
+      el("text", { x: padL + i * bw + bw / 2, y: H - 7, "text-anchor": "middle" }, svg)
         .textContent = r.date.slice(5);
     }
   });
@@ -151,12 +151,12 @@ function drawCalChart(rows) {
 function drawLineChart(svgId, series, key, goalVal, decimals, emptyMsg) {
   const svg = $("#" + svgId);
   svg.innerHTML = "";
-  const W = 700, H = 210, padL = 44, padR = 12, padT = 12, padB = 26;
+  const W = 340, H = 210, padL = 40, padR = 10, padT = 18, padB = 22;
   const iw = W - padL - padR, ih = H - padT - padB;
   const pts = (series || []).map((d) => ({ date: d.entry_date, v: d[key] }));
 
   if (!pts.length) {
-    el("text", { x: W / 2, y: H / 2, "text-anchor": "middle" }, svg).textContent = emptyMsg;
+    el("text", { x: W / 2, y: H / 2, "text-anchor": "middle", class: "emptytext" }, svg).textContent = emptyMsg;
     return;
   }
 
@@ -175,7 +175,7 @@ function drawLineChart(svgId, series, key, goalVal, decimals, emptyMsg) {
   for (let g = 0; g <= 4; g++) {
     const yy = padT + ih * (g / 4);
     el("line", { x1: padL, y1: yy, x2: W - padR, y2: yy, class: "baseline" }, svg);
-    el("text", { x: padL - 6, y: yy + 3, "text-anchor": "end" }, svg)
+    el("text", { x: padL - 5, y: yy + 4, "text-anchor": "end" }, svg)
       .textContent = (hi - (hi - lo) * (g / 4)).toFixed(decimals);
   }
 
@@ -188,8 +188,9 @@ function drawLineChart(svgId, series, key, goalVal, decimals, emptyMsg) {
   } else {
     el("polyline", { points: pts.map((d) => x(d.date) + "," + y(d.v)).join(" "), class: "wline" }, svg);
     pts.forEach((d) => el("circle", { cx: x(d.date), cy: y(d.v), r: 3, class: "wdot" }, svg));
-    [pts[0], pts[pts.length - 1]].forEach((d) => {
-      el("text", { x: x(d.date), y: y(d.v) - 8, "text-anchor": "middle" }, svg)
+    [["start", pts[0]], ["end", pts[pts.length - 1]]].forEach(([anchor, d]) => {
+      const ly = y(d.v) - 7 < padT + 9 ? y(d.v) + 15 : y(d.v) - 7;
+      el("text", { x: x(d.date), y: ly, "text-anchor": anchor }, svg)
         .textContent = (+d.v).toFixed(decimals);
     });
   }
