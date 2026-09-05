@@ -377,8 +377,8 @@ function renderMeals() {
 
 function entryRow(e) {
   const sub = [];
-  if (e.brand) sub.push(e.brand);
-  if (e.servings && e.servings !== 1) sub.push("×" + e.servings);
+  if (e.grams) sub.push(Math.round(e.grams) + "g");
+  else if (e.servings && e.servings !== 1) sub.push("×" + e.servings);
   if (e.protein_g) sub.push(Math.round(e.protein_g) + "g P");
   return `<div class="entry">
     <div class="en"><b>${escapeHtml(e.description)}</b><small>${sub.join(" · ")}</small></div>

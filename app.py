@@ -78,6 +78,8 @@ def _round(v, n=1):
 
 
 def _entry_view(e):
+    serving_grams = e.get("food_serving_grams")
+    grams = _round(e["servings"] * serving_grams) if serving_grams else None
     return {
         "id": e["id"],
         "meal": e["meal"],
@@ -86,6 +88,7 @@ def _entry_view(e):
         "food_id": e["food_id"],
         "servings": _round(e["servings"], 2),
         "serving_desc": e.get("food_serving_desc"),
+        "grams": grams,
         "calories": _round(e["calories"]),
         "protein_g": _round(e["protein_g"]),
         "fiber_g": _round(e["fiber_g"]),

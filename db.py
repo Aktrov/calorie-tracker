@@ -466,7 +466,8 @@ def entries_for_date(entry_date, profile_id=ACTIVE_PROFILE_ID):
     conn = get_conn()
     try:
         rows = conn.execute(
-            """SELECT le.*, f.brand AS food_brand, f.serving_desc AS food_serving_desc
+            """SELECT le.*, f.brand AS food_brand, f.serving_desc AS food_serving_desc,
+                      f.serving_grams AS food_serving_grams
                FROM log_entries le
                LEFT JOIN foods f ON f.id = le.food_id
                WHERE le.profile_id = ? AND le.entry_date = ?
