@@ -746,10 +746,17 @@ function pickLocal(f) {
   state.pick = { mode: "food", food: f };
   $("#pName").textContent = f.name;
   $("#pMeta").textContent = [f.brand, f.serving_desc, fmt(f.calories) + " kcal/serving"].filter(Boolean).join(" · ");
-  $("#pServingsWrap").hidden = false;
-  $("#pGramsWrap").hidden = true;
-  $("#pServingsLbl").textContent = "Servings";
-  $("#pServings").value = 1;
+  const g = Number(f.serving_grams) || 0;
+  if (g > 0) {
+    $("#pServingsWrap").hidden = true;
+    $("#pGramsWrap").hidden = false;
+    $("#pGrams").value = g;
+  } else {
+    $("#pServingsWrap").hidden = false;
+    $("#pGramsWrap").hidden = true;
+    $("#pServingsLbl").textContent = "Servings";
+    $("#pServings").value = 1;
+  }
   $("#pMeal").value = state.addMeal;
   updatePreview();
   showView("portion");
@@ -772,7 +779,10 @@ function updatePreview() {
   if (!p) return;
   let kcal, pro, fib;
   if (p.mode === "food") {
-    const n = parseFloat($("#pServings").value) || 0;
+    const g = Number(p.food.serving_grams) || 0;
+    const n = g > 0
+      ? (parseFloat($("#pGrams").value) || 0) / g
+      : (parseFloat($("#pServings").value) || 0);
     kcal = (p.food.calories || 0) * n; pro = (p.food.protein_g || 0) * n; fib = (p.food.fiber_g || 0) * n;
   } else {
     const g = parseFloat($("#pGrams").value) || 0;
@@ -787,7 +797,11 @@ $("#pConfirm").addEventListener("click", async () => {
   const meal = $("#pMeal").value;
   let payload;
   if (p.mode === "food") {
-    payload = { mode: "food", food_id: p.food.id, servings: parseFloat($("#pServings").value) || 1, meal, date: state.date };
+    const g = Number(p.food.serving_grams) || 0;
+    const servings = g > 0
+      ? (parseFloat($("#pGrams").value) || g) / g
+      : (parseFloat($("#pServings").value) || 1);
+    payload = { mode: "food", food_id: p.food.id, servings, meal, date: state.date };
   } else {
     payload = {
       mode: "off", off_code: p.item.off_code, name: p.item.name, brand: p.item.brand,
