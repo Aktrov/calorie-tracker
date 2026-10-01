@@ -138,6 +138,27 @@ cp config.example.json config.json   # optional; sane defaults apply without it
 `assistant` block (see [Nutrition assistant](#nutrition-assistant)), or the
 `openfoodfacts` block.
 
+## When it was eaten (`eaten_at`)
+
+Logging late shouldn't move the meal. The Add-food sheet has an **Eaten at**
+time (prefilled with now) shared by every add path — search, one-tap re-log,
+Quick add, Ask — and tapping a logged entry opens a small sheet to change it
+(or "Use logged time" to clear it).
+
+- `log_entries.eaten_at` (UTC ISO, nullable) was added by the boot migration
+  (`db.MIGRATIONS`, 2026-10-01). `NULL` = eaten when logged, so readers use
+  `eaten_at` else `created_at` (`db.eaten_time()`); old rows were never
+  rewritten. Pre-migration backup: `backups/calorie.db.*.pre-eaten-at.bak`.
+- The time is **only sent if you change it**; untouched = the log time, exactly
+  as before. The browser composes the instant in its own timezone and sends
+  `toISOString()`; the server refuses naive or future times (5 min slack).
+- The picker chooses a clock time on the day being viewed. On a **past** day,
+  times before 04:00 mean that night after midnight (a 00:30 snack logged under
+  the day before), never a future time; a hint spells it out. Entries whose
+  time falls on another day show the date, e.g. `1 Oct, 00:30`.
+- Entries are listed in eaten order. pulse reads the same column for its
+  timeline and Lab (coffee/dinner timing) and its own log sheet writes it too.
+
 ## Endpoints
 
 | Method | Path | Purpose |
@@ -149,8 +170,8 @@ cp config.example.json config.json   # optional; sane defaults apply without it
 | GET | `/api/foods/barcode/<code>` | OFF product lookup (OFF off by default) |
 | POST | `/api/nutrition/ask` | `{"query"}` → calories + macros via the local Claude CLI |
 | POST | `/api/foods` | Create a custom food |
-| POST | `/api/log` | Add a log entry (`mode`: `food` / `off` / `quick`) |
-| PUT/DELETE | `/api/log/<id>` | Edit / remove an entry |
+| POST | `/api/log` | Add a log entry (`mode`: `food` / `off` / `quick`; optional `eaten_at`) |
+| PUT/DELETE | `/api/log/<id>` | Edit / remove an entry (`eaten_at`: ISO sets, `null` clears) |
 | GET | `/api/activities/catalog` | Built-in activity list (name + kind) |
 | POST | `/api/activity` | Log activity (`kind`: `cardio` / `strength` / `other`) |
 | PUT/DELETE | `/api/activity/<id>` | Edit / remove an activity |

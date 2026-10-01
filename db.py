@@ -66,7 +66,8 @@ CREATE TABLE IF NOT EXISTS log_entries (
     calories    REAL    NOT NULL,                      -- computed total for the entry
     protein_g   REAL    NOT NULL DEFAULT 0,
     fiber_g     REAL    NOT NULL DEFAULT 0,
-    created_at  TEXT    NOT NULL
+    created_at  TEXT    NOT NULL,                      -- when it was logged
+    eaten_at    TEXT                                   -- when it was eaten (UTC ISO); NULL = created_at
 );
 CREATE INDEX IF NOT EXISTS idx_log_profile_date
     ON log_entries(profile_id, entry_date);
@@ -125,11 +126,30 @@ CREATE TABLE IF NOT EXISTS meta (
 # Additive migrations: {table: {column: "TYPE ..."}}. Applied only when missing.
 MIGRATIONS = {
     "profiles": {"goal_waist_cm": "REAL"},
+    # When the food was actually eaten, if the user set it. NULL = eaten when
+    # logged, so every reader uses eaten_at or created_at (see eaten_time()).
+    "log_entries": {"eaten_at": "TEXT"},
 }
 
 
 def _now():
     return datetime.now(timezone.utc).isoformat()
+
+
+def _ts(s):
+    """ISO timestamp -> aware datetime, for ordering. Rows carry mixed offsets
+    (UTC from this app, local from pulse's food log), so compare parsed values,
+    never the raw strings. Naive values are treated as UTC."""
+    try:
+        dt = datetime.fromisoformat(s)
+    except (TypeError, ValueError):
+        return datetime.min.replace(tzinfo=timezone.utc)
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def eaten_time(entry):
+    """When a log entry was eaten: the user-set eaten_at, else when it was logged."""
+    return entry.get("eaten_at") or entry.get("created_at")
 
 
 def get_conn():
@@ -408,12 +428,13 @@ def add_log_entry(data, profile_id=ACTIVE_PROFILE_ID):
         cur = conn.execute(
             """INSERT INTO log_entries
                (profile_id, entry_date, meal, food_id, description,
-                servings, calories, protein_g, fiber_g, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                servings, calories, protein_g, fiber_g, created_at, eaten_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 profile_id, data["entry_date"], data["meal"], data.get("food_id"),
                 data["description"], data["servings"], data["calories"],
                 data.get("protein_g", 0) or 0, data.get("fiber_g", 0) or 0, _now(),
+                data.get("eaten_at"),
             ),
         )
         conn.commit()
@@ -432,7 +453,7 @@ def get_log_entry(entry_id):
 
 
 def update_log_entry(entry_id, fields, profile_id=ACTIVE_PROFILE_ID):
-    allowed = {"meal", "servings", "calories", "protein_g", "fiber_g", "description"}
+    allowed = {"meal", "servings", "calories", "protein_g", "fiber_g", "description", "eaten_at"}
     clean = {k: v for k, v in fields.items() if k in allowed}
     if not clean:
         return get_log_entry(entry_id)
@@ -474,7 +495,8 @@ def entries_for_date(entry_date, profile_id=ACTIVE_PROFILE_ID):
                ORDER BY le.created_at""",
             (profile_id, entry_date),
         ).fetchall()
-        return [dict(r) for r in rows]
+        # In the order they were eaten (stable, so same-time items keep log order).
+        return sorted((dict(r) for r in rows), key=lambda e: _ts(eaten_time(e)))
     finally:
         conn.close()
 

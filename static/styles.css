@@ -448,3 +448,21 @@ button, input, select { font-family: inherit; font-size: inherit; color: inherit
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .empty { color: var(--text-faint); text-align: center; padding: 20px; font-size: 13.5px; }
+
+/* ---------------- When it was eaten ---------------- */
+/* "Eaten at" row pinned under the add-food sheet header (all add paths). */
+.eaten { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; margin-bottom: 14px; }
+.eaten label { font-size: 13px; color: var(--text-soft); font-weight: 700; }
+.eaten input {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 7px 10px;
+}
+.eaten input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.eaten-hint { display: block; flex-basis: 100%; color: var(--text-faint); font-size: 12.5px; }
+.eaten-hint:empty { display: none; }
+.eaten-hint.warn { color: var(--over); }
+/* Tap an entry's text to change when it was eaten. */
+.entry .en { cursor: pointer; border-radius: 8px; }
+.entry .en:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.entry .etime { border-bottom: 1px dotted currentColor; }
+.time-body { padding-bottom: calc(18px + env(safe-area-inset-bottom)); }

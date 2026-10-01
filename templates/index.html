@@ -114,6 +114,15 @@
       </button>
     </div>
 
+    <!-- When it was eaten — shared by every add path (search, re-log, quick, ask).
+         Untouched = "just now": nothing is sent and the log time is used. -->
+    <div class="eaten">
+      <label for="eatenAt">Eaten at</label>
+      <input type="time" id="eatenAt">
+      <button type="button" class="btn ghost sm" id="eatenNow">Now</button>
+      <small class="eaten-hint" id="eatenHint"></small>
+    </div>
+
     <!-- view: pick -->
     <div id="viewPick">
       <div class="tabs">
@@ -249,6 +258,30 @@
     </div><!-- /sheet-scroll -->
   </div>
 </div>
+
+<!-- ===== Edit when an entry was eaten ===== -->
+<div class="overlay" id="timeSheet" hidden>
+  <div class="sheet">
+    <div class="sheet-h">
+      <b>Eaten at</b>
+      <button class="icon-btn" id="timeClose" aria-label="Close">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12 19 6.4 17.6 5 12 10.6z"/></svg>
+      </button>
+    </div>
+    <div class="time-body">
+      <div class="card" style="margin:0 0 14px">
+        <b id="tName">–</b>
+        <div class="small muted" id="tMeta"></div>
+      </div>
+      <div class="field" style="margin-bottom:6px"><label for="tTime">Time</label><input type="time" id="tTime"></div>
+      <small class="eaten-hint" id="tHint"></small>
+      <div class="grid2" style="margin-top:14px">
+        <button class="btn ghost" id="tReset">Use logged time</button>
+        <button class="btn" id="tSave">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block script %}
@@ -256,10 +289,10 @@
 const MEALS = ["breakfast", "lunch", "dinner", "snack"];
 const state = { date: null, summary: null, pick: null };
 
-function todayISO() {
-  const d = new Date();
+function localISO(d) {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
+function todayISO() { return localISO(new Date()); }
 function shiftDate(iso, days) {
   // Operate entirely in UTC so toISOString() serialization doesn't roll the
   // calendar date across a timezone offset.
@@ -388,15 +421,21 @@ function renderMeals() {
   }
   $$("#meals .addfood").forEach((b) => b.addEventListener("click", () => openAdd(b.dataset.meal)));
   $$("#meals .entry .del").forEach((b) => b.addEventListener("click", () => deleteEntry(+b.dataset.id)));
+  $$("#meals .entry .en").forEach((el) => {
+    el.addEventListener("click", () => openTimeEdit(+el.dataset.edit));
+    el.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); openTimeEdit(+el.dataset.edit); } });
+  });
 }
 
 function entryRow(e) {
   const sub = [];
+  const t = timeLabel(e.eaten_at, state.date);
+  if (t) sub.push(`<span class="etime">${t}</span>`);
   if (e.grams) sub.push(Math.round(e.grams) + "g");
   else if (e.servings && e.servings !== 1) sub.push("×" + e.servings);
   if (e.protein_g) sub.push(Math.round(e.protein_g) + "g P");
   return `<div class="entry">
-    <div class="en"><b>${escapeHtml(e.description)}</b><small>${sub.join(" · ")}</small></div>
+    <div class="en" data-edit="${e.id}" role="button" tabindex="0" title="Change when it was eaten"><b>${escapeHtml(e.description)}</b><small>${sub.join(" · ")}</small></div>
     <span class="ek">${fmt(e.calories)}</span>
     <button class="del" data-id="${e.id}" aria-label="Delete">
       <svg class="ic" viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4zM6 9h12l-1 11H7z"/></svg>
@@ -699,6 +738,118 @@ if (window.visualViewport) {
   window.addEventListener("orientationchange", () => setTimeout(fitSheets, 200));
 }
 
+// ---------- when it was eaten ----------
+// The time pickers only choose a clock time; the day comes from the date being
+// viewed. Times before DAY_ROLLOVER_HOUR on a *past* day mean that night, after
+// midnight (a 00:30 snack logged under the day before) — but never a time in
+// the future, so on today they stay today.
+const DAY_ROLLOVER_HOUR = 4;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function pad2(n) { return String(n).padStart(2, "0"); }
+function hhmm(d) { return pad2(d.getHours()) + ":" + pad2(d.getMinutes()); }
+function dayLabel(d) { return d.getDate() + " " + MONTHS[d.getMonth()]; }
+function dateFromISO(iso) { const [y, mo, da] = iso.split("-").map(Number); return new Date(y, mo - 1, da); }
+function timeLabel(iso, dateISO) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  return localISO(d) === dateISO ? hhmm(d) : dayLabel(d) + ", " + hhmm(d);
+}
+function composeEaten(dateISO, hm) {
+  const [h, m] = (hm || "").split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  const [y, mo, da] = dateISO.split("-").map(Number);
+  if (h < DAY_ROLLOVER_HOUR) {
+    const next = new Date(y, mo - 1, da + 1, h, m);
+    if (next.getTime() <= Date.now()) return next;
+  }
+  return new Date(y, mo - 1, da, h, m);
+}
+const FUTURE_SLACK_MS = 60 * 1000;
+// Hint under a time picker: warns about the future, spells out after-midnight.
+function eatenHint(el, dateISO, hm, idleText) {
+  const d = composeEaten(dateISO, hm);
+  el.classList.remove("warn");
+  if (!d) { el.textContent = idleText || ""; return; }
+  if (d.getTime() > Date.now() + FUTURE_SLACK_MS) {
+    el.textContent = "That's in the future.";
+    el.classList.add("warn");
+  } else if (localISO(d) !== dateISO) {
+    el.textContent = `After midnight: ${dayLabel(d)}, ${hhmm(d)} (still counts for ${dayLabel(dateFromISO(dateISO))}).`;
+  } else {
+    el.textContent = idleText || "";
+  }
+}
+function resetEaten() {
+  $("#eatenAt").value = hhmm(new Date());
+  state.eatenTouched = false;
+  updateEatenHint();
+}
+function updateEatenHint() {
+  const el = $("#eatenHint");
+  if (state.eatenTouched) { eatenHint(el, state.date, $("#eatenAt").value); return; }
+  // Untouched sends nothing, so only nudge when "now" would be the wrong day.
+  el.classList.remove("warn");
+  el.textContent = state.date !== todayISO()
+    ? "Set when you ate it — otherwise the time you log it is used." : "";
+}
+$("#eatenAt").addEventListener("input", () => { state.eatenTouched = true; updateEatenHint(); });
+$("#eatenNow").addEventListener("click", resetEaten);
+// Extra POST fields for /api/log. Untouched = "just now": send nothing and the
+// server uses the moment it was logged. Throws (caught by callers -> toast).
+function eatenPayload() {
+  if (!state.eatenTouched) return {};
+  const d = composeEaten(state.date, $("#eatenAt").value);
+  if (!d) throw new Error("Pick a time it was eaten");
+  if (d.getTime() > Date.now() + FUTURE_SLACK_MS) throw new Error("Eaten time is in the future");
+  return { eaten_at: d.toISOString() };
+}
+
+// ---------- edit when an existing entry was eaten ----------
+const timeSheet = $("#timeSheet");
+function findEntry(id) {
+  for (const m of MEALS) {
+    const e = ((state.summary && state.summary.meals[m]) || []).find((x) => x.id === id);
+    if (e) return e;
+  }
+  return null;
+}
+function openTimeEdit(id) {
+  const e = findEntry(id);
+  if (!e) return;
+  state.editEntry = e;
+  $("#tName").textContent = e.description;
+  $("#tMeta").textContent = (e.time_set ? "Eaten " : "Logged ") + timeLabel(e.eaten_at, state.date)
+    + (e.time_set ? "" : " (no eaten time set)");
+  $("#tTime").value = e.eaten_at ? hhmm(new Date(e.eaten_at)) : hhmm(new Date());
+  $("#tReset").hidden = !e.time_set;
+  eatenHint($("#tHint"), state.date, $("#tTime").value);
+  timeSheet.hidden = false;
+  fitSheets();
+}
+function closeTimeSheet() { timeSheet.hidden = true; fitSheets(); }
+$("#timeClose").addEventListener("click", closeTimeSheet);
+timeSheet.addEventListener("click", (e) => { if (e.target === timeSheet) closeTimeSheet(); });
+$("#tTime").addEventListener("input", () => eatenHint($("#tHint"), state.date, $("#tTime").value));
+async function saveEatenAt(value, msg) {
+  const e = state.editEntry;
+  if (!e) return;
+  try {
+    await api("/api/log/" + e.id, {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eaten_at: value }),
+    });
+    closeTimeSheet(); load(); toast(msg);
+  } catch (err) { toast(err.message); }
+}
+$("#tSave").addEventListener("click", () => {
+  const d = composeEaten(state.date, $("#tTime").value);
+  if (!d) { toast("Pick a time"); return; }
+  if (d.getTime() > Date.now() + FUTURE_SLACK_MS) { toast("Eaten time is in the future"); return; }
+  saveEatenAt(d.toISOString(), "Time updated");
+});
+$("#tReset").addEventListener("click", () => saveEatenAt(null, "Back to the logged time"));
+
 // ---------- add sheet ----------
 const sheet = $("#sheet");
 function openAdd(meal) {
@@ -708,6 +859,7 @@ function openAdd(meal) {
   $("#searchIn").value = "";
   $("#searchResults").innerHTML = "";
   $("#qMeal").value = state.addMeal;
+  resetEaten();
   sheet.hidden = false;
   fitSheets();
   setTimeout(() => { $("#searchIn").focus(); fitSheets(); }, 60);
@@ -813,7 +965,7 @@ async function reLogQuick(r) {
       body: JSON.stringify({
         mode: "quick", description: r.description, calories: r.calories,
         protein_g: r.protein_g, fiber_g: r.fiber_g,
-        meal: state.addMeal, date: state.date,
+        meal: state.addMeal, date: state.date, ...eatenPayload(),
       }),
     });
     if (state.mealOpen) state.mealOpen[state.addMeal] = true;
@@ -899,6 +1051,7 @@ $("#pConfirm").addEventListener("click", async () => {
     };
   }
   try {
+    Object.assign(payload, eatenPayload());
     await api("/api/log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (state.mealOpen) state.mealOpen[meal] = true;
     closeSheet(); load(); toast("Added");
@@ -914,6 +1067,7 @@ $("#qAdd").addEventListener("click", async () => {
   };
   if (!payload.description || isNaN(payload.calories)) { toast("Need a description and calories"); return; }
   try {
+    Object.assign(payload, eatenPayload());
     await api("/api/log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (state.mealOpen) state.mealOpen[payload.meal] = true;
     $("#qName").value = $("#qCal").value = $("#qPro").value = $("#qFib").value = "";
@@ -981,7 +1135,7 @@ async function askLog() {
       body: JSON.stringify({
         mode: "quick", description: askData.name, calories: Math.round(askData.calories),
         protein_g: askData.protein_g || 0, fiber_g: askData.fiber_g || 0,
-        meal, date: state.date,
+        meal, date: state.date, ...eatenPayload(),
       }),
     });
     if (state.mealOpen) state.mealOpen[meal] = true;

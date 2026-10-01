@@ -6,7 +6,7 @@ Conventions match screen-time-dashboard: PrefixMiddleware threads SCRIPT_NAME so
 url_for() emits correct links behind `tailscale serve --set-path`.
 """
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from flask import (
     Flask, jsonify, render_template, request, send_from_directory, url_for,
@@ -75,6 +75,29 @@ def _err(status, message):
     return jsonify({"error": message}), status
 
 
+EATEN_AT_FUTURE_SLACK = timedelta(minutes=5)   # phone clocks drift a little
+
+
+def _parse_eaten_at(raw):
+    """Optional "when was it eaten" from the client -> UTC ISO string, or None.
+
+    The browser composes the instant in its own timezone and sends an ISO
+    string with an offset (Date.toISOString()). None/"" means "not set": the
+    entry counts as eaten when it was logged. Raises ValueError on bad input.
+    """
+    if raw is None or raw == "":
+        return None
+    try:
+        dt = datetime.fromisoformat(str(raw).strip().replace("Z", "+00:00"))
+    except ValueError:
+        raise ValueError("eaten_at must be an ISO 8601 timestamp")
+    if dt.tzinfo is None:
+        raise ValueError("eaten_at needs a UTC offset")
+    if dt > datetime.now(timezone.utc) + EATEN_AT_FUTURE_SLACK:
+        raise ValueError("eaten time is in the future")
+    return dt.astimezone(timezone.utc).isoformat(timespec="seconds")
+
+
 def _num(v, default=None):
     try:
         if v is None or v == "":
@@ -103,6 +126,9 @@ def _entry_view(e):
         "calories": _round(e["calories"]),
         "protein_g": _round(e["protein_g"]),
         "fiber_g": _round(e["fiber_g"]),
+        # when it was eaten (falls back to when it was logged) + whether the user set it
+        "eaten_at": db.eaten_time(e),
+        "time_set": bool(e.get("eaten_at")),
     }
 
 
@@ -327,6 +353,10 @@ def api_log_add():
     data = request.get_json(silent=True) or {}
     entry_date = _parse_date(data.get("date"))
     meal = data.get("meal") if data.get("meal") in MEALS else "snack"
+    try:
+        eaten_at = _parse_eaten_at(data.get("eaten_at"))
+    except ValueError as e:
+        return _err(400, str(e))
 
     mode = data.get("mode", "food")
 
@@ -393,6 +423,7 @@ def api_log_add():
     else:
         return _err(400, "unknown mode")
 
+    entry["eaten_at"] = eaten_at
     return jsonify(_entry_view({**db.add_log_entry(entry), "food_brand": None, "food_serving_desc": None})), 201
 
 
@@ -406,6 +437,13 @@ def api_log_update(entry_id):
 
     if data.get("meal") in MEALS:
         fields["meal"] = data["meal"]
+
+    # "eaten_at": ISO string sets the eaten time; null/"" clears it (back to logged time)
+    if "eaten_at" in data:
+        try:
+            fields["eaten_at"] = _parse_eaten_at(data.get("eaten_at"))
+        except ValueError as e:
+            return _err(400, str(e))
 
     if "servings" in data and existing["food_id"]:
         food = db.get_food(existing["food_id"])
