@@ -119,7 +119,7 @@
       <div class="tabs">
         <button data-tab="search" class="active">Search</button>
         <button data-tab="quick">Quick add</button>
-        <button data-tab="barcode">Barcode</button>
+        {% if assistant_enabled %}<button data-tab="ask">Ask</button>{% endif %}
       </div>
 
       <div id="tabSearch">
@@ -147,14 +147,16 @@
         <button class="btn" id="qAdd" style="width:100%">Add to log</button>
       </div>
 
-      <div id="tabBarcode" hidden>
-        <div class="row" style="gap:8px">
-          <input id="bcIn" inputmode="numeric" placeholder="Barcode digits"
-                 style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px">
-          <button class="btn ghost" id="bcBtn">Look up</button>
+      {% if assistant_enabled %}
+      <div id="tabAsk" hidden>
+        <div class="field" style="margin:0">
+          <input type="search" id="askIn" autocomplete="off"
+                 placeholder="e.g. 2 boiled eggs · 1 plate chicken biryani · 30 g almonds">
         </div>
-        <div id="bcResult" class="results"></div>
+        <button class="btn" id="askBtn" style="width:100%;margin-top:10px">Look up calories</button>
+        <div id="askResult" class="results"></div>
       </div>
+      {% endif %}
     </div>
 
     <!-- view: portion -->
@@ -199,12 +201,13 @@
     <div class="tabs">
       <button data-akind="cardio" class="active">Cardio</button>
       <button data-akind="strength">Strength</button>
+      {% if assistant_enabled %}<button data-akind="ask">Ask</button>{% endif %}
     </div>
 
     <datalist id="actCatalog"></datalist>
 
     <div class="sheet-scroll">
-    <div class="field">
+    <div class="field" id="aNameField">
       <label>Exercise</label>
       <input id="aName" list="actCatalog" autocomplete="off" placeholder="e.g. Elliptical, Leg press">
     </div>
@@ -226,11 +229,23 @@
     </div>
 
     <p class="small muted" id="aPreview" style="margin:0 0 14px"></p>
-    <div class="row" style="gap:10px">
+    <div class="row" id="aAddRow" style="gap:10px">
       <button class="btn" id="aAdd" style="flex:1">Add</button>
       <button class="btn ghost" id="aDone">Done</button>
     </div>
-    <p class="small muted" style="margin:12px 0 0">Estimates are rough (MET-based, scaled to your weight). Type a number to override.</p>
+    <p class="small muted" id="aHint" style="margin:12px 0 0">Estimates are rough (MET-based, scaled to your weight). Type a number to override.</p>
+
+    {% if assistant_enabled %}
+    <div id="aAskFields" hidden>
+      <div class="field">
+        <label>Describe the activity</label>
+        <input type="search" id="aAskIn" autocomplete="off"
+               placeholder="e.g. ran 5k this morning, 45 min swim, 4 sets of squats at 60kg">
+      </div>
+      <button class="btn" id="aAskBtn" style="width:100%;margin-top:4px">Estimate calories burned</button>
+      <div id="aAskResult" class="results"></div>
+    </div>
+    {% endif %}
     </div><!-- /sheet-scroll -->
   </div>
 </div>
@@ -459,6 +474,9 @@ async function openActivity() {
   setAKind("cardio");
   ["aName", "aMinutes", "aKcalC", "aSets", "aReps", "aLoad", "aKcalS"].forEach((id) => ($("#" + id).value = ""));
   $("#aPreview").textContent = "";
+  if ($("#aAskIn")) $("#aAskIn").value = "";
+  if ($("#aAskResult")) $("#aAskResult").innerHTML = "";
+  aAskData = null;
   actSheet.hidden = false;
   fitSheets();
   setTimeout(() => { $("#aName").focus(); fitSheets(); }, 60);
@@ -471,11 +489,19 @@ $("#aDone").addEventListener("click", closeActivity);
 actSheet.addEventListener("click", (e) => { if (e.target === actSheet) closeActivity(); });
 
 function setAKind(k) {
-  actKind = k;
+  const asking = k === "ask";
+  actKind = asking ? "cardio" : k;
   $$("#actSheet .tabs button").forEach((b) => b.classList.toggle("active", b.dataset.akind === k));
-  $("#aCardioFields").hidden = k !== "cardio";
-  $("#aStrengthFields").hidden = k !== "strength";
-  updateAPreview();
+  $("#aNameField").hidden = asking;
+  $("#aCardioFields").hidden = asking || k !== "cardio";
+  $("#aStrengthFields").hidden = asking || k !== "strength";
+  $("#aPreview").hidden = asking;
+  $("#aAddRow").hidden = asking;
+  $("#aHint").hidden = asking;
+  const askBox = $("#aAskFields");
+  if (askBox) askBox.hidden = !asking;
+  if (asking) { setTimeout(() => { const i = $("#aAskIn"); if (i) i.focus(); }, 60); }
+  else updateAPreview();
 }
 $$("#actSheet .tabs button").forEach((b) => b.addEventListener("click", () => {
   setAKind(b.dataset.akind);
@@ -535,6 +561,67 @@ async function addActivity() {
   } catch (e) { toast(e.message); }
 }
 $("#aAdd").addEventListener("click", addActivity);
+
+// ---------- activity ask (calorie-burn estimate via a local Claude CLI) ----------
+let aAskData = null;
+
+function aAskCard(d) {
+  const detail = d.kind === "strength" && (d.sets || d.reps)
+    ? `${d.sets ? d.sets + " sets" : ""}${d.sets && d.reps ? " × " : ""}${d.reps ? d.reps + " reps" : ""}`
+    : (d.duration_min ? `${fmt(d.duration_min)} min` : "");
+  return `<div class="card" style="margin:12px 0 0">
+    <b>${d.name}</b><div class="small muted">${d.kind}${detail ? " · " + detail : ""}</div>
+    <div style="display:flex;align-items:baseline;gap:6px;margin:8px 0 3px">
+      <b class="hud" style="font-size:1.6rem">${Math.round(d.calories)}</b>
+      <span class="muted small">kcal burned</span>
+    </div>
+    ${d.assumptions ? `<div class="small muted" style="margin-top:6px">${d.assumptions}</div>` : ""}
+    <button class="btn" data-aask-log style="width:100%;margin-top:12px">Log it</button>
+  </div>`;
+}
+
+async function doAAsk() {
+  const q = $("#aAskIn").value.trim();
+  const box = $("#aAskResult");
+  if (q.length < 2) return;
+  box.innerHTML = `<div class="empty">Estimating… (a few seconds)</div>`;
+  $("#aAskBtn").disabled = true;
+  try {
+    aAskData = await api("/api/activity/ask", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: q, date: state.date }),
+    });
+    box.innerHTML = aAskCard(aAskData);
+    $("[data-aask-log]", box).addEventListener("click", aAskLog);
+  } catch (e) {
+    box.innerHTML = `<div class="empty">${e.message}</div>`;
+  } finally {
+    $("#aAskBtn").disabled = false;
+  }
+}
+
+async function aAskLog() {
+  if (!aAskData) return;
+  try {
+    await api("/api/activity", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: aAskData.kind, name: aAskData.name, date: state.date,
+        duration_min: aAskData.duration_min, sets: aAskData.sets, reps: aAskData.reps,
+        calories_burned: aAskData.calories,
+      }),
+    });
+    $("#aAskIn").value = "";
+    $("#aAskResult").innerHTML = "";
+    state.activityOpen = true;
+    closeActivity(); load(); toast("Logged");
+  } catch (e) { toast(e.message); }
+}
+
+if ($("#aAskBtn")) {
+  $("#aAskBtn").addEventListener("click", doAAsk);
+  $("#aAskIn").addEventListener("keydown", (e) => { if (e.key === "Enter") doAAsk(); });
+}
 
 // ---------- weight ----------
 async function loadWeight() {
@@ -640,7 +727,8 @@ function switchTab(name) {
   $$(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
   $("#tabSearch").hidden = name !== "search";
   $("#tabQuick").hidden = name !== "quick";
-  $("#tabBarcode").hidden = name !== "barcode";
+  const ask = $("#tabAsk");
+  if (ask) ask.hidden = name !== "ask";
 }
 $$(".tabs button").forEach((b) => b.addEventListener("click", () => switchTab(b.dataset.tab)));
 
@@ -833,18 +921,94 @@ $("#qAdd").addEventListener("click", async () => {
   } catch (e) { toast(e.message); }
 });
 
-// ---------- barcode ----------
-$("#bcBtn").addEventListener("click", async () => {
-  const code = $("#bcIn").value.trim();
-  const box = $("#bcResult");
-  if (!code) return;
-  box.innerHTML = `<div class="empty">Looking up…</div>`;
+// ---------- ask (nutrition lookup via a local Claude CLI) ----------
+let askData = null;
+
+function askNum(v) { return v == null ? "–" : Math.round(v * 10) / 10; }
+
+function askCard(d) {
+  return `<div class="card" style="margin:12px 0 0">
+    <b>${d.name}</b><div class="small muted">${d.serving_desc}</div>
+    <div style="display:flex;align-items:baseline;gap:6px;margin:8px 0 3px">
+      <b class="hud" style="font-size:1.6rem">${Math.round(d.calories)}</b>
+      <span class="muted small">kcal</span>
+    </div>
+    <div class="small muted">P ${askNum(d.protein_g)} g · Fiber ${askNum(d.fiber_g)} g ·
+      Carbs ${askNum(d.carbs_g)} g · Fat ${askNum(d.fat_g)} g</div>
+    ${d.assumptions ? `<div class="small muted" style="margin-top:6px">${d.assumptions}</div>` : ""}
+    <div class="grid2" style="margin-top:12px">
+      <div class="field" style="margin:0"><label>Meal</label>
+        <select id="askMeal">
+          <option value="breakfast">Breakfast</option><option value="lunch">Lunch</option>
+          <option value="dinner">Dinner</option><option value="snack" selected>Snack</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <button class="btn" data-ask-log style="flex:1">Log it</button>
+        <button class="btn ghost" data-ask-save style="flex:1">Save food</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function doAsk() {
+  const q = $("#askIn").value.trim();
+  const box = $("#askResult");
+  if (q.length < 2) return;
+  box.innerHTML = `<div class="empty">Looking up… (a few seconds)</div>`;
+  $("#askBtn").disabled = true;
   try {
-    const o = await api("/api/foods/barcode/" + encodeURIComponent(code));
-    box.innerHTML = offRes(o);
-    $("[data-off]", box).addEventListener("click", () => pickOff(o));
-  } catch (e) { box.innerHTML = `<div class="empty">${e.message}</div>`; }
-});
+    askData = await api("/api/nutrition/ask", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: q }),
+    });
+    box.innerHTML = askCard(askData);
+    $("[data-ask-log]", box).addEventListener("click", askLog);
+    $("[data-ask-save]", box).addEventListener("click", askSave);
+  } catch (e) {
+    box.innerHTML = `<div class="empty">${e.message}</div>`;
+  } finally {
+    $("#askBtn").disabled = false;
+  }
+}
+
+async function askLog() {
+  if (!askData) return;
+  const meal = ($("#askMeal") && $("#askMeal").value) || "snack";
+  try {
+    await api("/api/log", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "quick", description: askData.name, calories: Math.round(askData.calories),
+        protein_g: askData.protein_g || 0, fiber_g: askData.fiber_g || 0,
+        meal, date: state.date,
+      }),
+    });
+    if (state.mealOpen) state.mealOpen[meal] = true;
+    closeSheet(); load(); toast("Added");
+  } catch (e) { toast(e.message); }
+}
+
+async function askSave() {
+  if (!askData) return;
+  try {
+    await api("/api/foods", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: askData.name, serving_desc: askData.serving_desc,
+        serving_grams: askData.serving_grams, calories: Math.round(askData.calories),
+        protein_g: askData.protein_g || 0, fiber_g: askData.fiber_g || 0,
+        carbs_g: askData.carbs_g, fat_g: askData.fat_g,
+      }),
+    });
+    toast("Saved to your foods");
+  } catch (e) { toast(e.message); }
+}
+
+if ($("#askBtn")) {
+  $("#askBtn").addEventListener("click", doAsk);
+  $("#askIn").addEventListener("keydown", (e) => { if (e.key === "Enter") doAsk(); });
+}
 
 // ---------- boot ----------
 state.date = todayISO();

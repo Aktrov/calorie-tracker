@@ -1,8 +1,17 @@
 {
   "timezone": "Europe/Berlin",
+
   "openfoodfacts": {
-    "enabled": true,
+    "enabled": false,
     "timeout_seconds": 5,
     "user_agent": "calorie-tracker/0.1 (personal homelab app)"
+  },
+
+  "assistant": {
+    "_comment": "Nutrition lookup panel on the Today page. Shells out to a local Claude CLI in print mode — no API key. Set enabled=false to hide the panel.",
+    "enabled": true,
+    "command": "claude",
+    "model": "haiku",
+    "timeout_seconds": 60
   }
 }

@@ -13,6 +13,7 @@ from flask import (
 )
 
 import activity
+import assistant
 import config
 import db
 import nutrition
@@ -40,6 +41,16 @@ class PrefixMiddleware:
 
 
 app.wsgi_app = PrefixMiddleware(app.wsgi_app, prefix=os.environ.get("SCRIPT_NAME", ""))
+
+
+@app.after_request
+def _no_store_api(resp):
+    """API responses carry live data — never let a browser/SW cache them.
+    (A stale cached /api/foods/search is why edits to the food list can look
+    like they didn't take.)"""
+    if request.path.startswith("/api/"):
+        resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 db.init_db()
 
@@ -136,7 +147,8 @@ def _parse_dt(iso):
 # --------------------------------------------------------------------------
 @app.route("/")
 def index():
-    return render_template("index.html", page="today")
+    return render_template("index.html", page="today",
+                           assistant_enabled=assistant.available())
 
 
 @app.route("/profile")
@@ -270,6 +282,17 @@ def api_food_barcode(code):
     if not item:
         return _err(404, "Product not found on Open Food Facts")
     return jsonify(item)
+
+
+@app.route("/api/nutrition/ask", methods=["POST"])
+def api_nutrition_ask():
+    if not assistant.available():
+        return _err(503, "nutrition assistant is not configured")
+    data = request.get_json(silent=True) or {}
+    result = assistant.ask((data.get("query") or "").strip())
+    if not result.get("ok"):
+        return _err(502, result.get("error") or "lookup failed")
+    return jsonify(result)
 
 
 @app.route("/api/foods", methods=["POST"])
@@ -424,6 +447,18 @@ def api_activity_catalog():
 def _int_or_none(v):
     n = _num(v)
     return int(n) if n and n > 0 else None
+
+
+@app.route("/api/activity/ask", methods=["POST"])
+def api_activity_ask():
+    if not assistant.available():
+        return _err(503, "activity assistant is not configured")
+    data = request.get_json(silent=True) or {}
+    bw = _body_weight_for(db.get_profile(), _parse_date(data.get("date")))
+    result = assistant.ask_activity((data.get("query") or "").strip(), bw)
+    if not result.get("ok"):
+        return _err(502, result.get("error") or "lookup failed")
+    return jsonify(result)
 
 
 @app.route("/api/activity", methods=["POST"])

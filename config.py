@@ -1,6 +1,6 @@
 """Config loader. config.json is optional — sensible defaults apply when it is
-absent. Holds no secrets (Open Food Facts is an unauthenticated public API), so
-it ships as config.example.json and a working config.json both."""
+absent. It is gitignored (the assistant block can name a local CLI); a
+config.example.json ships as the template."""
 import json
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -14,7 +14,16 @@ _DEFAULTS = {
         "timeout_seconds": 5,
         "user_agent": "calorie-tracker/0.1 (personal homelab app)",
     },
+    "assistant": {
+        # Nutrition lookup panel. Shells out to a local Claude CLI — no API key.
+        "enabled": False,
+        "command": "claude",
+        "model": "haiku",
+        "timeout_seconds": 60,
+    },
 }
+
+_MERGE_NESTED = ("openfoodfacts", "assistant")
 
 _config = None
 
@@ -28,9 +37,10 @@ def load():
                 user = json.loads(CONFIG_PATH.read_text())
             except (json.JSONDecodeError, OSError):
                 user = {}
-            cfg.update({k: v for k, v in user.items() if k != "openfoodfacts"})
-            if isinstance(user.get("openfoodfacts"), dict):
-                cfg["openfoodfacts"] = {**_DEFAULTS["openfoodfacts"], **user["openfoodfacts"]}
+            cfg.update({k: v for k, v in user.items() if k not in _MERGE_NESTED})
+            for key in _MERGE_NESTED:
+                if isinstance(user.get(key), dict):
+                    cfg[key] = {**_DEFAULTS[key], **user[key]}
         _config = cfg
     return _config
 
@@ -44,3 +54,7 @@ def timezone():
 
 def off():
     return load()["openfoodfacts"]
+
+
+def assistant():
+    return load()["assistant"]

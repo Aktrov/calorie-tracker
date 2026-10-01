@@ -26,14 +26,17 @@ core loop, stripped to what drives weight change.
   manual expand/collapse is remembered for the visit, and the section you just
   logged to re-opens so you can see the new entry.
 - **Add food** — three ways:
-  - **Search** the curated local database (~150 common Indian + Western foods)
-    *and* Open Food Facts live. Anything you've logged before is ranked to the
-    top (most-recent first, with a "N×" badge), including past free-text
-    "quick add" entries — tap one to re-log it with the same numbers. Matching
-    is word-order tolerant ("rice basmati" finds "Basmati rice"). OFF results are
-    cached into the local DB on log so they're searchable offline next time.
+  - **Search** the curated local database (~90 common Indian + Western foods,
+    every rice / dal / grain labelled cooked vs. dry). Anything you've logged
+    before is ranked to the top (most-recent first, with a "N×" badge),
+    including past free-text "quick add" entries — tap one to re-log it with the
+    same numbers. Matching is word-order tolerant ("rice basmati" finds
+    "Basmati rice").
   - **Quick add** — free-text description + calories (+ optional protein / fiber).
-  - **Barcode** — look a product up on Open Food Facts by its barcode digits.
+  - **Ask** — type a food and portion ("2 boiled eggs", "1 plate chicken
+    biryani", "30 g almonds"); a local Claude CLI returns calories + macros,
+    which you can **Log it** or **Save food** (as a custom entry). No API key —
+    see [Nutrition assistant](#nutrition-assistant).
 - **Add activity** — log **cardio** (name + minutes) or **strength** (name +
   sets / reps + optional load). Calories burned are estimated with the MET method
   (`kcal/min = MET × 3.5 × bodyweight / 200`; `activity.py` holds the MET table,
@@ -74,7 +77,12 @@ narrow.
 ## Data
 
 - One SQLite file: `data/calorie.db` (gitignored). Created and seeded on first
-  boot from `data/foods_seed.csv`.
+  boot from `data/foods_seed.csv` (~90 hand-verified common foods, all
+  `source = 'curated'`).
+- **Rebuilding the food list:** edit `data/foods_seed.csv`, then
+  `venv/bin/python tools/reseed_foods.py` — it backs up the DB to `backups/`,
+  wipes `foods`, and reloads from the CSV. Log history is untouched (entries
+  carry their own numbers; new food ids continue above the old max).
 - Schema is keyed by `profile_id` from day one. There is one profile (id 1) for
   now; a profile picker is a later addition with no migration needed.
 - Log entries store their *computed* calories/protein/fiber, so later edits to a
@@ -87,13 +95,33 @@ narrow.
   columns/tables land via `db.MIGRATIONS` / `CREATE TABLE IF NOT EXISTS` on boot
   — no destructive migrations.
 
-## Open Food Facts
+## Nutrition assistant
 
-- Text search: `https://search.openfoodfacts.org/search`
-- Barcode: `https://world.openfoodfacts.org/api/v2/product/<code>.json`
-- Every call is best-effort with a hard timeout (default 5s). Any failure —
-  network, timeout, or OFF serving its "temporarily unavailable" HTML — falls
-  back to the local database silently. Toggle it off in `config.json`.
+The **Ask** tab shells out to a local Claude CLI in print mode — no API key, no
+network config. `assistant.py` runs
+`claude -p '<prompt>' --output-format json --model <model>` (cwd forced to a
+temp dir so it doesn't load this project's context), parses the JSON reply, and
+returns `{name, serving_desc, serving_grams, calories, protein_g, fiber_g,
+carbs_g, fat_g, assumptions}`. Endpoint: `POST /api/nutrition/ask`
+`{"query": "..."}`.
+
+Config block in `config.json` (defaults in `config.py`):
+
+```json
+"assistant": { "enabled": true, "command": "claude", "model": "haiku", "timeout_seconds": 60 }
+```
+
+`enabled: false`, or the `command` not being on `PATH`, hides the tab and makes
+the endpoint return 503. Each lookup takes a few seconds and costs whatever the
+CLI's model call costs.
+
+## Open Food Facts (disabled)
+
+The OFF integration (`offapi.py`, text search + barcode) is still in the code but
+**off by default** (`config.json` → `openfoodfacts.enabled: false`) — its
+per-100g-as-sold values were unreliable (raw vs. cooked, inconsistent servings).
+The **Ask** tab replaces it. Flip `enabled: true` to bring the Search tab's OFF
+results and the `/api/foods/barcode` route back.
 
 ## Setup
 
@@ -105,10 +133,10 @@ cp config.example.json config.json   # optional; sane defaults apply without it
 ./cleanup.sh                         # stops it
 ```
 
-`config.json` is gitignored (suite habit) but holds no secrets — Open Food Facts
-is an unauthenticated public API. The app runs fine without it on the defaults in
-`config.py`. Copy `config.example.json` if you want to change the `timezone` or
-the `openfoodfacts` block (`enabled`, `timeout_seconds`, `user_agent`).
+`config.json` is gitignored. The app runs fine without it on the defaults in
+`config.py`. Copy `config.example.json` to change the `timezone`, the
+`assistant` block (see [Nutrition assistant](#nutrition-assistant)), or the
+`openfoodfacts` block.
 
 ## Endpoints
 
@@ -117,8 +145,9 @@ the `openfoodfacts` block (`enabled`, `timeout_seconds`, `user_agent`).
 | GET | `/` | Today page |
 | GET | `/history`, `/profile` | Trends / settings pages |
 | GET | `/api/summary?date=YYYY-MM-DD` | Day totals, goal, remaining, meals, activity |
-| GET | `/api/foods/search?q=` | Local + Open Food Facts search |
-| GET | `/api/foods/barcode/<code>` | OFF product lookup |
+| GET | `/api/foods/search?q=` | Local food search (+ OFF if re-enabled) |
+| GET | `/api/foods/barcode/<code>` | OFF product lookup (OFF off by default) |
+| POST | `/api/nutrition/ask` | `{"query"}` → calories + macros via the local Claude CLI |
 | POST | `/api/foods` | Create a custom food |
 | POST | `/api/log` | Add a log entry (`mode`: `food` / `off` / `quick`) |
 | PUT/DELETE | `/api/log/<id>` | Edit / remove an entry |
