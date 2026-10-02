@@ -174,7 +174,8 @@ def _parse_dt(iso):
 @app.route("/")
 def index():
     return render_template("index.html", page="today",
-                           assistant_enabled=assistant.available())
+                           assistant_enabled=assistant.available(),
+                           food_assistant_enabled=assistant.food_available())
 
 
 @app.route("/profile")
@@ -312,7 +313,7 @@ def api_food_barcode(code):
 
 @app.route("/api/nutrition/ask", methods=["POST"])
 def api_nutrition_ask():
-    if not assistant.available():
+    if not assistant.food_available():
         return _err(503, "nutrition assistant is not configured")
     data = request.get_json(silent=True) or {}
     result = assistant.ask((data.get("query") or "").strip())

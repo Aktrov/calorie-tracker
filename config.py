@@ -15,11 +15,15 @@ _DEFAULTS = {
         "user_agent": "calorie-tracker/0.1 (personal homelab app)",
     },
     "assistant": {
-        # Nutrition lookup panel. Shells out to a local Claude CLI — no API key.
+        # Ask panels. Shell out to a local Claude CLI — no API key.
+        # Food Ask runs the `agent` (its own prompt + model, read-only access to
+        # memory_dir). Activity Ask uses an inline prompt on `model`.
         "enabled": False,
         "command": "claude",
         "model": "haiku",
-        "timeout_seconds": 60,
+        "agent": "calorie-estimator",
+        "memory_dir": "~/.claude/calorie-estimator",
+        "timeout_seconds": 90,
     },
 }
 

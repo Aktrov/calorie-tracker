@@ -8,10 +8,12 @@
   },
 
   "assistant": {
-    "_comment": "Nutrition lookup panel on the Today page. Shells out to a local Claude CLI in print mode — no API key. Set enabled=false to hide the panel.",
+    "_comment": "Ask panels on the Today page. Shell out to a local Claude CLI in print mode — no API key. Food Ask runs the `agent` (~/.claude/agents/<agent>.md, own prompt + model) with read-only access to memory_dir; it is hidden if the agent file is missing. Activity Ask uses an inline prompt on `model`. Set enabled=false to hide both.",
     "enabled": true,
     "command": "claude",
     "model": "haiku",
-    "timeout_seconds": 60
+    "agent": "calorie-estimator",
+    "memory_dir": "~/.claude/calorie-estimator",
+    "timeout_seconds": 90
   }
 }

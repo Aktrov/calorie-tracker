@@ -397,6 +397,22 @@ button, input, select { font-family: inherit; font-size: inherit; color: inherit
 .tag.hist    { background: var(--primary); color: #fff; }
 :root[data-theme="dark"] .tag.off { background: #40342a; color: #e6a983; }
 :root[data-theme="dark"] .tag.custom { background: #38342b; color: #cbb892; }
+/* Ask card: estimate range + confidence (calorie-estimator agent) */
+.ask-kcal { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 8px; margin: 8px 0 3px; }
+.ask-range { font-size: 13px; font-weight: 700; color: var(--text-soft); }
+.ask-range::before { content: "range "; font-weight: 400; color: var(--text-faint); }
+.ask-kcal .tag { align-self: center; }
+.tag.conf-high   { background: var(--primary-soft); color: var(--primary-deep); }
+.tag.conf-medium { background: #f5ead0; color: #94701f; }
+.tag.conf-low    { background: #f3e2d3; color: #b5713e; }
+:root[data-theme="dark"] .tag.conf-medium { background: #3d3626; color: #e6c67f; }
+:root[data-theme="dark"] .tag.conf-low    { background: #40342a; color: #e6a983; }
+.ask-clarify {
+  margin-top: 8px; padding: 7px 10px; font-size: 13px; color: var(--text-soft);
+  border-left: 3px solid var(--fiber); background: var(--surface-2);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+.ask-clarify b { color: var(--text); }
 .src-head { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); margin: 14px 0 4px; font-weight: 800; }
 
 /* ---------------- Charts ---------------- */

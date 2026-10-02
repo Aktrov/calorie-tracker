@@ -34,9 +34,12 @@ core loop, stripped to what drives weight change.
     "Basmati rice").
   - **Quick add** — free-text description + calories (+ optional protein / fiber).
   - **Ask** — type a food and portion ("2 boiled eggs", "1 plate chicken
-    biryani", "30 g almonds"); a local Claude CLI returns calories + macros,
-    which you can **Log it** or **Save food** (as a custom entry). No API key —
-    see [Nutrition assistant](#nutrition-assistant).
+    biryani", "30 g almonds"); the `calorie-estimator` agent (local Claude CLI)
+    returns calories + macros with a **likely range**, a **confidence** chip
+    (high / medium / low) and, when it's unsure, the one question that would
+    tighten it. Adjust the calories if you know better, then **Log it** or
+    **Save food** (as a custom entry). No API key — see
+    [Nutrition assistant](#nutrition-assistant).
 - **Add activity** — log **cardio** (name + minutes) or **strength** (name +
   sets / reps + optional load). Calories burned are estimated with the MET method
   (`kcal/min = MET × 3.5 × bodyweight / 200`; `activity.py` holds the MET table,
@@ -97,23 +100,57 @@ narrow.
 
 ## Nutrition assistant
 
-The **Ask** tab shells out to a local Claude CLI in print mode — no API key, no
-network config. `assistant.py` runs
-`claude -p '<prompt>' --output-format json --model <model>` (cwd forced to a
-temp dir so it doesn't load this project's context), parses the JSON reply, and
-returns `{name, serving_desc, serving_grams, calories, protein_g, fiber_g,
-carbs_g, fat_g, assumptions}`. Endpoint: `POST /api/nutrition/ask`
-`{"query": "..."}`.
+The food **Ask** tab runs the **`calorie-estimator` agent** through a local
+Claude CLI in print mode — no API key, no network config. The agent owns the
+prompt and the model (sonnet, set in its own definition), and reads a
+trust-ordered food memory (`label` > `user` > `seeded`) before estimating.
+`assistant.ask()` runs, with cwd forced to a temp dir so this project's context
+isn't loaded:
+
+```
+claude -p '<query>' --agent calorie-estimator --output-format json \
+  --allowedTools 'Read(//<memory_dir>/**)' --disallowedTools Write Edit \
+  --add-dir <memory_dir>
+```
+
+- **Read-only against the agent's memory.** `Read` is allowed *only* inside
+  `memory_dir`. A bare `--allowedTools Read` was tested (2026-10-02) and lets a
+  crafted query read any file this user can and echo it back in
+  `assumptions` — don't widen it. `Write`/`Edit` are explicitly denied (the
+  CLI removes them from the session). Only the user's own CLI chat with the
+  agent (`claude --agent calorie-estimator`, e.g. to ingest a package label)
+  writes `FOODS.md`.
+- **No `--model`** — the agent's definition sets it.
+- The app's `foods` table and the agent's `FOODS.md` are **separate stores**:
+  a food saved in the app is not visible to the agent (no sync).
+
+Endpoint: `POST /api/nutrition/ask` `{"query": "..."}` → `{name, serving_desc,
+serving_grams, calories, protein_g, fiber_g, carbs_g, fat_g, assumptions,
+kcal_low, kcal_high, confidence, clarify}`. `confidence` is one of
+`high`/`medium`/`low` (anything else → `null`); `kcal_low`/`kcal_high` are both
+set or both `null`; `clarify` is a string or `null`. Non-food input — the agent
+replies `{"error": "<reason>"}` — comes back as a **502** with that reason as
+the message.
+
+The **activity** Ask (`POST /api/activity/ask`) is unchanged: an inline
+MET-table prompt on `model` (haiku).
 
 Config block in `config.json` (defaults in `config.py`):
 
 ```json
-"assistant": { "enabled": true, "command": "claude", "model": "haiku", "timeout_seconds": 60 }
+"assistant": {
+  "enabled": true, "command": "claude", "model": "haiku",
+  "agent": "calorie-estimator", "memory_dir": "~/.claude/calorie-estimator",
+  "timeout_seconds": 90
+}
 ```
 
-`enabled: false`, or the `command` not being on `PATH`, hides the tab and makes
-the endpoint return 503. Each lookup takes a few seconds and costs whatever the
-CLI's model call costs.
+`model` applies to the activity Ask only. `enabled: false`, or the `command`
+not being on `PATH`, hides both Ask tabs (endpoints → 503). If
+`~/.claude/agents/<agent>.md` is missing, only the **food** Ask is hidden and
+`/api/nutrition/ask` returns 503. A food estimate takes ~5–11 s and ~$0.02 on
+sonnet; the agent's behaviour (prompt, memory rules, seeded-value threshold) is
+changed in its own definition, not here.
 
 ## Open Food Facts (disabled)
 
@@ -168,7 +205,7 @@ Quick add, Ask — and tapping a logged entry opens a small sheet to change it
 | GET | `/api/summary?date=YYYY-MM-DD` | Day totals, goal, remaining, meals, activity |
 | GET | `/api/foods/search?q=` | Local food search (+ OFF if re-enabled) |
 | GET | `/api/foods/barcode/<code>` | OFF product lookup (OFF off by default) |
-| POST | `/api/nutrition/ask` | `{"query"}` → calories + macros via the local Claude CLI |
+| POST | `/api/nutrition/ask` | `{"query"}` → calories + macros + range/confidence/clarify via the `calorie-estimator` agent (503 if the agent is missing; 502 + reason for non-food) |
 | POST | `/api/foods` | Create a custom food |
 | POST | `/api/log` | Add a log entry (`mode`: `food` / `off` / `quick`; optional `eaten_at`) |
 | PUT/DELETE | `/api/log/<id>` | Edit / remove an entry (`eaten_at`: ISO sets, `null` clears) |
