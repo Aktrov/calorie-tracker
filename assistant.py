@@ -38,8 +38,9 @@ Keys:
                  strength set count was given instead)
   sets           number, sets performed, or null (strength only)
   reps           number, reps per set, or null (strength only)
-  calories       number, estimated kcal burned for the WHOLE described activity, using MET
-                 (metabolic equivalent) tables and the given body weight
+  calories       number, estimated NET kcal for the WHOLE described activity — the burn ABOVE
+                 resting, i.e. (MET - 1) x 3.5 x body weight / 200 x minutes. Resting burn
+                 is already counted elsewhere, so do not include it.
   assumptions    short string: what you assumed (pace/intensity, duration, body weight used)
 
 The person weighs approximately {body_weight} kg. Use standard MET values (Compendium of \

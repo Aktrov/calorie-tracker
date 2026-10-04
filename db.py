@@ -629,20 +629,24 @@ def activities_for_date(entry_date, profile_id=ACTIVE_PROFILE_ID):
         conn.close()
 
 
-def daily_burned(start_date, end_date, profile_id=ACTIVE_PROFILE_ID):
-    """{date: burned_kcal} for dates in [start, end]."""
+def activities_between(start_date, end_date, profile_id=ACTIVE_PROFILE_ID):
+    """{date: [activity rows]} for dates in [start, end]."""
     conn = get_conn()
     try:
         rows = conn.execute(
-            """SELECT entry_date, SUM(calories_burned) AS burned
-               FROM activity_entries
+            """SELECT * FROM activity_entries
                WHERE profile_id = ? AND entry_date BETWEEN ? AND ?
-               GROUP BY entry_date""",
+               ORDER BY created_at""",
             (profile_id, start_date, end_date),
         ).fetchall()
-        return {r["entry_date"]: round(r["burned"] or 0, 1) for r in rows}
+        out = {}
+        for r in rows:
+            out.setdefault(r["entry_date"], []).append(dict(r))
+        return out
     finally:
         conn.close()
+
+
 
 
 # --------------------------------------------------------------------------

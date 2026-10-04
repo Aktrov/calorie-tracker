@@ -22,14 +22,14 @@
 
 <div class="hist-grid">
 <div class="card">
-  <h2>Calories vs goal, by meal</h2>
+  <h2>Calories vs budget, by meal</h2>
   <svg class="chart" id="calChart" viewBox="0 0 340 210" preserveAspectRatio="xMidYMid meet"></svg>
   <div class="legend">
     <span><i class="meal-breakfast"></i>Breakfast</span>
     <span><i class="meal-lunch"></i>Lunch</span>
     <span><i class="meal-dinner"></i>Dinner</span>
     <span><i class="meal-snack"></i>Snack</span>
-    <span><i style="background:var(--fiber)"></i>Goal (incl. exercise)</span>
+    <span><i style="background:var(--fiber)"></i>Budget (moves with the band)</span>
   </div>
 </div>
 
@@ -135,7 +135,7 @@ function drawCalChart(rows) {
   svg.innerHTML = "";
   const W = 340, H = 210, padL = 40, padR = 8, padT = 18, padB = 24;
   const iw = W - padL - padR, ih = H - padT - padB;
-  const goalRef = (r) => (r.goal_adjusted != null ? r.goal_adjusted : r.goal) || 0;
+  const goalRef = (r) => r.goal || 0;   // per-day budget (energy.py)
   const maxV = Math.max(1, ...rows.map((r) => Math.max(r.calories, goalRef(r)))) * 1.12;
   const bw = iw / rows.length;
 
@@ -161,7 +161,7 @@ function drawCalChart(rows) {
     });
   });
 
-  // goal line (per-day; rises on days with logged exercise)
+  // budget line (per-day; higher on days you moved more)
   const pts = rows.map((r, i) =>
     (padL + i * bw + bw / 2) + "," + (goalRef(r) ? padT + ih - ih * (goalRef(r) / maxV) : padT + ih)
   );

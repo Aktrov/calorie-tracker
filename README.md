@@ -41,24 +41,26 @@ core loop, stripped to what drives weight change.
     **Save food** (as a custom entry). No API key — see
     [Nutrition assistant](#nutrition-assistant).
 - **Add activity** — log **cardio** (name + minutes) or **strength** (name +
-  sets / reps + optional load). Calories burned are estimated with the MET method
-  (`kcal/min = MET × 3.5 × bodyweight / 200`; `activity.py` holds the MET table,
-  including gym machines). Strength with no time uses `sets × 3.5` minutes.
+  sets / reps + optional load). Each entry's kcal is the **net** MET estimate,
+  the burn *above resting*: `(MET − 1) × 3.5 × bodyweight / 200 × minutes`.
+  `activity.py` holds the MET table (machines and isolation lifts 3.5, heavy
+  compounds higher) and a flag for whether the band sees each activity. Strength
+  with no time uses `sets × 2.5` minutes, or 3 sets if none are given.
   Bodyweight comes from your latest weigh-in (→ start weight → 70 kg). Type your
-  own kcal to override — it then stops re-estimating. Exercise is credited back
-  to the day: **remaining = goal − food + burned**, and the ring fills against
-  `goal + burned`.
-- **Profile** — sex, age, height, activity level, goal (lose / maintain / gain)
-  and target rate. The daily calorie budget is **auto-calculated**
-  (Mifflin–St Jeor BMR × activity factor = TDEE, minus a deficit from your target
-  rate, floored at a safe minimum). A manual calorie / protein / fiber goal
-  overrides the calc. The budget panel shows every step.
+  own kcal to override; it then stops re-estimating.
+- **Daily budget** (the same model as Pulse; see [Energy model](#energy-model)) —
+  calories out minus your planned deficit. The ring fills against it, and the line
+  under the ring shows how it's built.
+- **Profile** — sex, age, height, goal (lose / maintain / gain) and target rate.
+  There is no activity level to pick: the band measures movement. The budget panel
+  shows every step of today's budget. A manual calorie / protein / fiber goal
+  overrides the calc (a manual calorie goal is a fixed number).
 - **Body measurements** — weight, plus optional **waist** and **neck**, logged
   whenever you measure (never required). Waist + neck + height give an
   **estimated body-fat %** (US Navy circumference method) shown on Today and
   trended on History. A goal waist draws a target line on the waist chart.
-- **History** — calories/day **stacked by meal** vs. the goal line (7 / 14 / 30 /
-  90 days; the goal line rises on days you logged exercise), a "Calories by meal"
+- **History** — calories/day **stacked by meal** vs. each day's budget (7 / 14 / 30 /
+  90 days; the line is higher on days you moved more), a "Calories by meal"
   breakdown (avg kcal/day and % of intake per meal, with a takeaway), plus
   weight / waist / body-fat trend charts. Average intake, days logged, days
   active.
@@ -77,6 +79,38 @@ Layout is single-column on mobile (the wrappers are `display:contents`); at
 History's charts go two-up, and `.wrap` widens to use the screen. Profile stays
 narrow.
 
+## Energy model
+
+`energy.py` is the single place the day's calories are worked out. It is a
+**byte-identical copy in calorie-tracker and Pulse** (as are `nutrition.py` and
+`activity.py`), so both apps show the same budget. Edit one copy, copy it over,
+then run `~/.claude/optimus/scripts/check-shared.sh`.
+
+```
+calories out = resting + active + logged
+  resting  BMR (Mifflin–St Jeor) × 1.1   — basal burn + ~10 % digesting food
+  active   the band's active kcal for the day (walks, cardio, gym while a band
+           workout runs). Read from ../pulse/data/health.db, read-only.
+  logged   logged activities the band can't see (weights, machines, bike…),
+           minus what the band measured inside its own ~no-step workouts.
+           Logged walks/cardio are a journal only — the band already has them.
+budget    = calories out − planned deficit (0.5 kg/wk = 550), never below 1,500
+remaining = budget − eaten
+```
+
+- **No band data for a day** (band off, or before it was set up): resting is
+  BMR × 1.2 (sedentary) and every logged activity counts.
+- **Today** the band number is "so far", so the budget grows as you move. If
+  today has no band rows yet but yesterday does, the band is assumed in use and
+  waiting to sync.
+- The band DB path comes from `config.json` → `pulse_health_db` (default:
+  `../pulse/data/health.db`). If it's missing, every day falls back to the log.
+
+Why it's built this way (diagnosed 2026-10-02): the old budget used a fixed
+"light" activity factor (×1.375 ≈ 670 kcal/day of assumed movement) *and* added
+logged gym on top. That counted exercise twice, and the gym estimate itself came
+out about 2× the band's measurement. The weight trend backed this up.
+
 ## Data
 
 - One SQLite file: `data/calorie.db` (gitignored). Created and seeded on first
@@ -90,8 +124,11 @@ narrow.
   now; a profile picker is a later addition with no migration needed.
 - Log entries store their *computed* calories/protein/fiber, so later edits to a
   food row never rewrite history.
-- `activity_entries` store the calories-burned figure used at log time; editing
-  inputs re-estimates unless you set a manual number (`manual_kcal`).
+- `activity_entries.calories_burned` holds the estimate made when the entry was
+  saved. The budget does **not** sum it: `energy.day()` re-estimates
+  non-manual rows live with the current MET table, because rows saved before
+  2026-10-02 hold old gross estimates. Manual (`manual_kcal`) numbers are used
+  as typed.
 - Weight keeps its own table (`weight_entries`) because the TDEE math depends on
   it. Other measurements go in `body_measurements` keyed by `kind`
   (`waist` / `neck` / `hip`), one value per (profile, date, kind). Additive
@@ -202,7 +239,7 @@ Quick add, Ask — and tapping a logged entry opens a small sheet to change it
 |---|---|---|
 | GET | `/` | Today page |
 | GET | `/history`, `/profile` | Trends / settings pages |
-| GET | `/api/summary?date=YYYY-MM-DD` | Day totals, goal, remaining, meals, activity |
+| GET | `/api/summary?date=YYYY-MM-DD` | Day totals, budget (`goal.calories`), remaining, `energy` block (full `energy.day()` breakdown), meals, activity (per-entry net kcal + `in_band`) |
 | GET | `/api/foods/search?q=` | Local food search (+ OFF if re-enabled) |
 | GET | `/api/foods/barcode/<code>` | OFF product lookup (OFF off by default) |
 | POST | `/api/nutrition/ask` | `{"query"}` → calories + macros + range/confidence/clarify via the `calorie-estimator` agent (503 if the agent is missing; 502 + reason for non-food) |
@@ -212,7 +249,7 @@ Quick add, Ask — and tapping a logged entry opens a small sheet to change it
 | GET | `/api/activities/catalog` | Built-in activity list (name + kind) |
 | POST | `/api/activity` | Log activity (`kind`: `cardio` / `strength` / `other`) |
 | PUT/DELETE | `/api/activity/<id>` | Edit / remove an activity |
-| GET | `/api/history?days=N` | Per-day calories vs goal, burned, weight series |
+| GET | `/api/history?days=N` | Per-day calories vs budget (`goal`), `out`, `band_active`, `burned` (logged kcal added), weight series |
 | GET/POST | `/api/weight`, DELETE `/api/weight/<id>` | Weight log |
 | GET/POST | `/api/measure/<kind>` (`waist`/`neck`), DELETE `/api/measure/<id>` | Body measurement log |
 | GET/POST | `/api/profile` | Profile + computed targets |

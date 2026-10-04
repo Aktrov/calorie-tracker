@@ -22,16 +22,10 @@
   </div>
   <div class="grid2">
     <div class="field"><label>Height (cm)</label><input id="f_height_cm" type="number" inputmode="decimal"></div>
-    <div class="field"><label>Activity level</label>
-      <select id="f_activity_level">
-        <option value="sedentary">Sedentary — desk job, little exercise</option>
-        <option value="light">Light — light exercise 1–3 d/wk</option>
-        <option value="moderate">Moderate — 3–5 d/wk</option>
-        <option value="active">Active — 6–7 d/wk</option>
-        <option value="very_active">Very active — hard training / physical job</option>
-      </select>
-    </div>
+    <div></div>
   </div>
+  <p class="small muted" style="margin:4px 0 0">No activity level to pick: the band measures your movement,
+    and gym work it can't see comes from your activity log.</p>
 </div>
 
 <div class="card">
@@ -72,7 +66,7 @@
 {% block script %}
 <script>
 const FIELDS = [
-  "name", "sex", "birth_year", "height_cm", "activity_level", "goal_type",
+  "name", "sex", "birth_year", "height_cm", "goal_type",
   "target_rate_kg_per_week", "start_weight_kg", "goal_weight_kg", "goal_waist_cm",
   "manual_calorie_goal", "manual_protein_goal", "manual_fiber_goal",
 ];
@@ -95,27 +89,36 @@ async function load() {
 }
 
 function renderBudget(data) {
-  const t = data.targets, b = t.breakdown;
+  const t = data.targets, e = data.energy, m = data.model;
   const box = $("#budget");
-  if (!b) {
+  const line = (k, v, cls) => `<div class="line${cls ? " " + cls : ""}"><span>${k}</span><b>${v}</b></div>`;
+  if (!e) {
     box.innerHTML = `<div class="empty">Need height, birth year and a weight (start weight or a logged weight) to calculate.</div>`;
+  } else if (e.mode === "manual" || e.manual) {
+    box.innerHTML = line("Manual calorie goal", fmt(e.budget), "total") +
+      line("Protein target", t.protein_g == null ? "—" : t.protein_g + " g") +
+      line("Fiber target", t.fiber_g + " g");
   } else {
-    const factorTxt = { 1.2: "sedentary", 1.375: "light", 1.55: "moderate", 1.725: "active", 1.9: "very active" }[b.activity_factor] || b.activity_factor;
-    const swingLbl = b.deficit >= 0 ? "Deficit" : "Surplus";
-    box.innerHTML = `
-      <div class="line"><span>Current weight</span><b>${b.current_weight} kg</b></div>
-      <div class="line"><span>Age</span><b>${b.age}</b></div>
-      <div class="line"><span>BMR (Mifflin–St Jeor)</span><b>${fmt(b.bmr)}</b></div>
-      <div class="line"><span>× activity (${factorTxt})</span><b>×${b.activity_factor}</b></div>
-      <div class="line"><span>Maintenance (TDEE)</span><b>${fmt(b.tdee)}</b></div>
-      <div class="line"><span>${swingLbl}</span><b>${b.deficit >= 0 ? "−" : "+"}${fmt(Math.abs(b.deficit))}</b></div>
-      <div class="line total"><span>Daily calorie goal</span><b>${t.calories == null ? "—" : fmt(t.calories)}</b></div>
-      <div class="line"><span>Protein target</span><b>${t.protein_g == null ? "—" : t.protein_g + " g"}</b></div>
-      <div class="line"><span>Fiber target</span><b>${t.fiber_g} g</b></div>`;
+    const band = e.mode === "band";
+    const swing = e.deficit_target >= 0 ? "− Planned deficit" : "+ Planned surplus";
+    box.innerHTML =
+      line("Current weight", data.current_weight_kg + " kg") +
+      line("BMR (Mifflin–St Jeor)", fmt(e.bmr)) +
+      line(`Resting (BMR × ${e.resting_factor})`, fmt(e.resting)) +
+      (band ? line(`+ Movement, band${e.partial ? " (so far)" : ""}`, fmt(e.active)) : "") +
+      (e.logged ? line(band ? "+ Gym work the band missed" : "+ Logged activity", fmt(e.logged)) : "") +
+      line("= Calories out", fmt(e.out)) +
+      line(swing, fmt(Math.abs(e.deficit_target))) +
+      line("Budget today", fmt(e.budget) + (e.floored ? " (minimum)" : ""), "total") +
+      line("Protein target", t.protein_g == null ? "—" : t.protein_g + " g") +
+      line("Fiber target", t.fiber_g + " g");
   }
-  $("#budgetNote").textContent = t.auto
-    ? "Calorie goal is auto-calculated. Set a manual calorie goal below to override it."
-    : (t.calories != null ? "Using your manual calorie goal." : "");
+  $("#budgetNote").textContent = !e ? "" : (e.manual
+    ? "Using your manual calorie goal as a fixed number. Clear it below to use the band-based budget."
+    : `Budget = resting (BMR × ${m.resting_factor}) + movement the band measured + gym work it can't see, ` +
+      `minus your planned deficit. It grows as you move during the day. On days with no band data: ` +
+      `BMR × ${m.no_band_factor} + everything you logged. Never below ${fmt(m.min_calories)}. ` +
+      `Same numbers as Pulse.`);
 }
 
 $("#saveBtn").addEventListener("click", async () => {

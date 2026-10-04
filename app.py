@@ -6,6 +6,7 @@ Conventions match screen-time-dashboard: PrefixMiddleware threads SCRIPT_NAME so
 url_for() emits correct links behind `tailscale serve --set-path`.
 """
 import os
+import sqlite3
 from datetime import datetime, timedelta, timezone
 
 from flask import (
@@ -16,6 +17,7 @@ import activity
 import assistant
 import config
 import db
+import energy
 import nutrition
 import offapi
 
@@ -146,7 +148,37 @@ def _body_weight_for(profile, on_date):
     )
 
 
-def _activity_view(a):
+def _band_conn():
+    """Read-only connection to Pulse's band DB, or None if it isn't there."""
+    path = config.pulse_health_db()
+    if not path.exists():
+        return None
+    try:
+        return sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=2)
+    except sqlite3.Error:
+        return None
+
+
+def _energy_for(profile, on_date, eaten, acts, conn=None):
+    """The day's energy (energy.day) — budget, calories out and its parts.
+    Pass `conn` to reuse one band-DB connection across many days."""
+    today = _today().isoformat()
+    own = conn is None
+    if own:
+        conn = _band_conn()
+    try:
+        band = energy.band_summary(conn, on_date, today) if conn else None
+    finally:
+        if own and conn:
+            conn.close()
+    weight = db.latest_weight(on_or_before=on_date) or profile.get("start_weight_kg")
+    return energy.day(profile, weight, on_date, today, band, acts, eaten,
+                      now=datetime.now(config.timezone()))
+
+
+def _activity_view(a, credit=None):
+    """`credit` is this entry's line from energy.day(): its net kcal (live
+    estimate unless typed by hand) and whether the band already counts it."""
     return {
         "id": a["id"],
         "kind": a["kind"],
@@ -155,7 +187,8 @@ def _activity_view(a):
         "sets": a.get("sets"),
         "reps": a.get("reps"),
         "weight_kg": a.get("weight_kg"),
-        "calories_burned": _round(a["calories_burned"]),
+        "calories_burned": credit["kcal"] if credit else _round(a["calories_burned"]),
+        "in_band": bool(credit and credit["in_band"]),
         "manual_kcal": bool(a.get("manual_kcal")),
         "notes": a.get("notes"),
     }
@@ -240,35 +273,44 @@ def api_summary():
         tot["fiber_g"] += e["fiber_g"] or 0
 
     acts = db.activities_for_date(d)
-    burned = round(sum(a["calories_burned"] or 0 for a in acts), 1)
+    en = _energy_for(profile, d, tot["calories"], acts)
+    credits = {c["id"]: c for c in (en["entries"] if en else [])}
 
     def remaining(key, goal_key):
         goal = targets.get(goal_key)
         return None if goal is None else _round(goal - tot[key])
 
-    cal_goal = targets.get("calories")
-    cal_remaining = None if cal_goal is None else _round(cal_goal - tot["calories"] + burned)
+    budget = en["budget"] if en else None
+    # what logged activity adds to the day's burn (band-visible cardio is in the
+    # band's number instead — see energy.py)
+    added = en["logged"] if en else 0
 
     return jsonify({
         "date": d,
         "today": _today().isoformat(),
         "profile": {"name": profile["name"], "goal_type": profile["goal_type"]},
         "goal": {
-            "calories": cal_goal,
-            "calories_adjusted": None if cal_goal is None else int(round(cal_goal + burned)),
+            "calories": budget,
             "protein_g": targets["protein_g"],
             "fiber_g": targets["fiber_g"],
-            "auto": targets["auto"],
+            "auto": bool(en) and not en["manual"],
             "breakdown": targets["breakdown"],
         },
-        "totals": {**{k: _round(v) for k, v in tot.items()}, "burned": burned},
+        "energy": en,
+        "totals": {**{k: _round(v) for k, v in tot.items()}, "burned": added},
         "remaining": {
-            "calories": cal_remaining,
+            "calories": en["remaining"] if en else None,
             "protein_g": remaining("protein_g", "protein_g"),
             "fiber_g": remaining("fiber_g", "fiber_g"),
         },
         "meals": meals,
-        "activity": {"entries": [_activity_view(a) for a in acts], "burned": burned},
+        "activity": {
+            "entries": [_activity_view(a, credits.get(a["id"])) for a in acts],
+            "burned": added,
+            "logged_total": en["logged_total"] if en else 0,
+            "band_stationary": en["band_stationary"] if en else 0,
+            "mode": en["mode"] if en else None,
+        },
         "body": {
             "weight_kg": db.latest_weight(on_or_before=d),
             "waist_cm": db.latest_measurement("waist", on_or_before=d),
@@ -587,32 +629,40 @@ def api_history():
     start = end - timedelta(days=days - 1)
     profile = db.get_profile()
     totals = db.daily_totals(start.isoformat(), end.isoformat())
-    burned_by_day = db.daily_burned(start.isoformat(), end.isoformat())
+    acts_by_day = db.activities_between(start.isoformat(), end.isoformat())
     meal_by_day = db.daily_meal_calories(start.isoformat(), end.isoformat())
 
     out_days = []
-    for i in range(days):
-        d = (start + timedelta(days=i)).isoformat()
-        t = totals.get(d, {"calories": 0, "protein_g": 0, "fiber_g": 0})
-        goal = _daily_goal_for(profile, d)["calories"]
-        burned = burned_by_day.get(d, 0)
-        mb = meal_by_day.get(d, {})
-        out_days.append({
-            "date": d,
-            "calories": t["calories"],
-            "protein_g": t["protein_g"],
-            "fiber_g": t["fiber_g"],
-            "burned": burned,
-            "goal": goal,
-            "goal_adjusted": None if goal is None else int(round(goal + burned)),
-            "logged": d in totals or d in burned_by_day,
-            "by_meal": {m: round(mb.get(m, 0), 1) for m in MEALS},
-        })
+    conn = _band_conn()
+    try:
+        for i in range(days):
+            d = (start + timedelta(days=i)).isoformat()
+            t = totals.get(d, {"calories": 0, "protein_g": 0, "fiber_g": 0})
+            acts = acts_by_day.get(d, [])
+            en = _energy_for(profile, d, t["calories"], acts, conn=conn)
+            mb = meal_by_day.get(d, {})
+            out_days.append({
+                "date": d,
+                "calories": t["calories"],
+                "protein_g": t["protein_g"],
+                "fiber_g": t["fiber_g"],
+                # what logged activity added to the burn (band days: only what
+                # the band couldn't see), and the band's own movement number
+                "burned": en["logged"] if en else 0,
+                "band_active": en["active"] if en and en["mode"] == "band" else None,
+                "out": en["out"] if en else None,
+                "goal": en["budget"] if en else None,
+                "logged": d in totals or bool(acts),
+                "by_meal": {m: round(mb.get(m, 0), 1) for m in MEALS},
+            })
+    finally:
+        if conn:
+            conn.close()
 
     logged = [x for x in out_days if x["logged"]]
     food_days = [x for x in out_days if x["date"] in totals]
     avg_cal = round(sum(x["calories"] for x in food_days) / len(food_days)) if food_days else None
-    active_days = sum(1 for x in out_days if x["burned"])
+    active_days = len(acts_by_day)        # days with any activity logged
 
     # calories by meal, averaged over days with any food logged
     meal_totals = {m: 0.0 for m in MEALS}
@@ -741,11 +791,17 @@ def api_measure_delete(entry_id):
 def _profile_view(profile):
     w = db.latest_weight() or profile.get("start_weight_kg")
     targets = nutrition.compute_targets(profile, w)
+    today = _today().isoformat()
+    tot = db.daily_totals(today, today).get(today, {"calories": 0})
     return {
         "profile": profile,
         "current_weight_kg": w,
         "targets": targets,
-        "activity_options": list(nutrition.ACTIVITY_FACTORS.keys()),
+        # today's budget, the same numbers the Today page shows
+        "energy": _energy_for(profile, today, tot["calories"], db.activities_for_date(today)),
+        "model": {"resting_factor": energy.RESTING_FACTOR,
+                  "no_band_factor": energy.NO_BAND_FACTOR,
+                  "min_calories": nutrition.MIN_CALORIES.get(profile.get("sex") or "male")},
     }
 
 

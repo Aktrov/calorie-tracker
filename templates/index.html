@@ -28,9 +28,8 @@
       </div>
     </div>
     <div class="ring-side">
-      <div class="kv"><span class="muted small">Goal</span><b id="kvGoal">–</b></div>
+      <div class="kv"><span class="muted small">Budget</span><b id="kvGoal">–</b></div>
       <div class="kv"><span class="muted small">Food</span><b id="kvFood">0</b></div>
-      <div class="kv" id="kvExRow" hidden><span class="muted small">Exercise</span><b id="kvEx" style="color:var(--primary)">–</b></div>
       <div class="kv" id="kvRemainRow"><span class="muted small">Remaining</span><b id="kvRemain">–</b></div>
     </div>
   </div>
@@ -46,6 +45,7 @@
     </div>
   </div>
 
+  <p class="small muted" id="burnLine" style="margin:12px 0 0" hidden></p>
   <p class="small muted" id="goalNote" style="margin:12px 0 0" hidden>
     No calorie budget yet — <a href="{{ url_for('profile_page') }}" style="color:var(--primary-deep);font-weight:700">set up your profile</a>
     or a manual goal.
@@ -326,21 +326,19 @@ async function load() {
 
 function render() {
   const s = state.summary;
+  // goal.calories is the day's budget from energy.py: calories out − planned deficit
   const goal = s.goal.calories, food = s.totals.calories, remain = s.remaining.calories;
-  const burned = (s.totals.burned || 0);
-  const goalAdj = s.goal.calories_adjusted != null ? s.goal.calories_adjusted : goal;
   const C = 389.56;
 
   $("#kvGoal").textContent = goal == null ? "—" : fmt(goal);
   $("#kvFood").textContent = fmt(food);
-  $("#kvExRow").hidden = burned <= 0;
-  $("#kvEx").textContent = "−" + fmt(burned);
+  renderBurnLine(s.energy);
   $("#kvRemain").textContent = remain == null ? "—" : fmt(remain);
   $("#kvRemainRow").classList.toggle("over", remain != null && remain < 0);
   $("#goalNote").hidden = goal != null;
 
-  const pct = goalAdj ? Math.min(Math.max(food / goalAdj, 0), 1) : 0;
-  const over = goalAdj != null && food > goalAdj;
+  const pct = goal ? Math.min(Math.max(food / goal, 0), 1) : 0;
+  const over = goal != null && food > goal;
   $("#ring").classList.toggle("over", over);
   $(".ring .fill").style.strokeDashoffset = C * (1 - pct);
   if (goal == null) {
@@ -451,10 +449,31 @@ async function deleteEntry(id) {
   catch (e) { toast(e.message); }
 }
 
+// One line under the ring: how today's budget is built (same numbers as Pulse).
+function renderBurnLine(e) {
+  const el = $("#burnLine");
+  if (!e || e.mode === "manual" || e.manual) { el.hidden = true; return; }
+  const parts = [`${fmt(e.resting)} resting`];
+  if (e.mode === "band") parts.push(`${fmt(e.active)} band${e.partial ? " so far" : ""}`);
+  if (e.logged) parts.push(`${fmt(e.logged)} ${e.mode === "band" ? "gym (not seen by band)" : "logged activity"}`);
+  const swing = e.deficit_target >= 0 ? `− ${fmt(e.deficit_target)} deficit` : `+ ${fmt(-e.deficit_target)} surplus`;
+  el.textContent = `Burn ${fmt(e.out)} = ${parts.join(" + ")} ${swing} → budget ${fmt(e.budget)}` +
+    (e.floored ? " (minimum)" : "") +
+    (e.mode === "log" ? " · no band data for this day" : "") +
+    (e.pending ? " · band data not synced yet today" : "");
+  el.hidden = false;
+}
+
 // ---------- activity ----------
 function renderActivities() {
-  const acts = (state.summary.activity && state.summary.activity.entries) || [];
-  const burned = state.summary.activity ? state.summary.activity.burned : 0;
+  const act = state.summary.activity || {};
+  const acts = act.entries || [];
+  const burned = act.burned || 0;
+  const bandDay = act.mode === "band";
+  const note = !acts.length ? "" : (bandDay
+    ? `<div class="empty" style="text-align:left">Walks and cardio are already in the band's number (marked "band").
+       Strength and machines add to your burn${act.band_stationary ? ` — minus the ${fmt(act.band_stationary)} kcal the band measured during its own workouts` : ""}.</div>`
+    : `<div class="empty" style="text-align:left">No band data for this day — everything logged counts.</div>`);
   const wrap = $("#activity");
 
   const det = document.createElement("details");
@@ -463,9 +482,9 @@ function renderActivities() {
   det.innerHTML = `
     <summary>
       <span class="mname">Activity</span>
-      <span class="mkcal">${burned > 0 ? "−" + fmt(burned) + " kcal" : "—"}</span>
+      <span class="mkcal">${burned > 0 ? "+" + fmt(burned) + " kcal" : (acts.length && bandDay ? "in band" : "—")}</span>
     </summary>
-    ${acts.length ? acts.map(activityRow).join("") : '<div class="empty">Nothing logged. Add a workout or some cardio.</div>'}
+    ${acts.length ? acts.map(activityRow).join("") + note : '<div class="empty">Nothing logged. Add a workout or some cardio.</div>'}
     <button class="addfood" id="addActivityBtn">+ Add activity</button>`;
   det.addEventListener("toggle", () => { state.activityOpen = det.open; });
 
@@ -485,7 +504,9 @@ function activityRow(a) {
   if (a.manual_kcal) sub.push("manual");
   return `<div class="entry">
     <div class="en"><b>${escapeHtml(a.name)}</b><small>${sub.join(" · ")}</small></div>
-    <span class="ek" style="color:var(--primary)">−${fmt(a.calories_burned)}</span>
+    ${a.in_band
+      ? `<span class="ek muted" title="Counted by the band, not added again">${fmt(a.calories_burned)} · band</span>`
+      : `<span class="ek" style="color:var(--primary)">+${fmt(a.calories_burned)}</span>`}
     <button class="del" data-id="${a.id}" aria-label="Delete">
       <svg class="ic" viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4zM6 9h12l-1 11H7z"/></svg>
     </button>

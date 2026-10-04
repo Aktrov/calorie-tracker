@@ -25,6 +25,9 @@ _DEFAULTS = {
         "memory_dir": "~/.claude/calorie-estimator",
         "timeout_seconds": 90,
     },
+    # Pulse's band database. Read-only: band-measured movement feeds the daily
+    # budget (energy.py). Missing/unreadable -> budget falls back to the log.
+    "pulse_health_db": str(Path(__file__).resolve().parent.parent / "pulse" / "data" / "health.db"),
 }
 
 _MERGE_NESTED = ("openfoodfacts", "assistant")
@@ -62,3 +65,7 @@ def off():
 
 def assistant():
     return load()["assistant"]
+
+
+def pulse_health_db():
+    return Path(load()["pulse_health_db"]).expanduser()

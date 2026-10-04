@@ -1,7 +1,13 @@
+# SHARED FILE — byte-identical copies live in calorie-tracker/ and pulse/.
+# Edit one, copy it over, then run ~/.claude/optimus/scripts/check-shared.sh.
 """Daily targets — the 'auto-calc'.
 
-Given a profile and the current weight, compute the daily calorie budget the
-dashboard measures against:
+NOTE: the calorie budget both apps show comes from energy.py (resting + band-
+measured movement − planned deficit). `calories` here is the static,
+activity-factor estimate; it is kept for the profile breakdown and for the
+protein fallback. Protein / fiber targets and body fat still come from here.
+
+Given a profile and the current weight, compute the static daily estimate:
 
   BMR  (Mifflin-St Jeor)
        men:   10*kg + 6.25*cm - 5*age + 5
