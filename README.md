@@ -7,7 +7,7 @@ core loop, stripped to what drives weight change.
 - **Repo:** `git@github.com:Aktrov/calorie-tracker.git`
 - **Stack:** Flask + SQLite, single process.
 - **Bind:** `127.0.0.1:5200` only.
-- **Tailnet mount:** `https://groot.tail088f09.ts.net/calorie-tracker/`
+- **Tailnet mount:** `https://<host>.<tailnet>.ts.net/calorie-tracker/` (optional; see Tailnet routing)
 - **Lifecycle:** `run.sh` / `cleanup.sh` + `.calorie-tracker.pid` + tmux session
   `calorie-tracker` (matches `screen-time-dashboard`).
 - **Look:** deliberately *not* the suite's Cybertron-HUD theme — a calm
